@@ -336,3 +336,14 @@ test("an unticked occurrence whose next copy exists offers no Stop repeating", a
   assert.equal(original.canStop, false, "its series has moved on to the next copy");
   assert.equal(next.canStop, true, "the live occurrence can still stop the series");
 });
+
+test("a browser without IndexedDB sees an error instead of a broken page", () => {
+  const dom = new JSDOM(html, { runScripts: "outside-only", url: "http://localhost/" });
+  const ctx = dom.getInternalVMContext();
+  dom.window.indexedDB = undefined;
+  dbScript.runInContext(ctx);
+  appScript.runInContext(ctx);
+  const error = dom.window.document.querySelector("#error");
+  assert.equal(error.hidden, false, "the error banner is shown");
+  assert.match(error.textContent, /does not support IndexedDB/);
+});
