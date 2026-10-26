@@ -47,6 +47,7 @@
   function makeSelect(className, label, options, value) {
     var sel = document.createElement("select");
     sel.className = className;
+    sel.name = className; // a name lets browsers autofill and stops a DevTools form warning
     sel.setAttribute("aria-label", label);
     options.forEach(function (o) { sel.append(new Option(o[1], o[0])); });
     sel.value = value;
@@ -57,9 +58,20 @@
     var el = document.createElement("input");
     el.type = type;
     el.className = className;
+    el.name = className;
     el.setAttribute("aria-label", label);
     el.value = value || "";
     return el;
+  }
+
+  /** Wrap a control in a visible label, like the add form's "Due" / "Repeat" fields. */
+  function labelled(text, control, grow) {
+    var wrap = document.createElement("label");
+    wrap.className = "field" + (grow ? " grow" : "");
+    var span = document.createElement("span");
+    span.textContent = text;
+    wrap.append(span, control);
+    return wrap;
   }
 
   function stopEditing() {
@@ -102,7 +114,13 @@
     row1.append(title);
     var row2 = document.createElement("div");
     row2.className = "edit-row";
-    row2.append(priority, due, repeat, tags);
+    // Visible labels: two "None" dropdowns side by side are otherwise indistinguishable.
+    row2.append(
+      labelled("Priority", priority),
+      labelled("Due", due),
+      labelled("Repeat", repeat),
+      labelled("Tags", tags, true)
+    );
     var row3 = document.createElement("div");
     row3.className = "edit-row edit-actions";
     row3.append(save, cancel);
@@ -144,6 +162,7 @@
     var label = document.createElement("label");
     var checkbox = document.createElement("input");
     checkbox.type = "checkbox";
+    checkbox.name = "done-" + task.id;
     checkbox.checked = task.done;
     checkbox.setAttribute("aria-label", "Mark “" + task.title + "” done");
     checkbox.addEventListener("change", function () {

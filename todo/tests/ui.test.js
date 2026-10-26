@@ -79,7 +79,9 @@ async function waitFor(check, ms = 1000) {
 
 test("shows the empty state on first load", async () => {
   const app = openApp();
-  await settle();
+  // Wait for the first load to finish rather than a fixed delay: on a busy machine
+  // (first test, cold start) 30ms wasn't always enough and the test flaked.
+  await waitFor(() => app.doc.querySelector("#tag-filter").disabled);
   assert.deepEqual(app.titles(), []);
   assert.equal(app.doc.querySelector("#empty-state").hidden, false);
   assert.equal(app.doc.querySelector("#tag-filter").disabled, true, "tag filter is off with no tags");
@@ -546,4 +548,31 @@ test("edited titles are rendered as text, not HTML", async () => {
   const row = await startEdit(app, '<img src=x onerror="window.hacked=1">');
   assert.equal(row.querySelector("img"), null, "edit form shows it as a value, not markup");
   assert.equal(row.querySelector(".edit-title").value, '<img src=x onerror="window.hacked=1">');
+});
+
+test("edit form fields have visible labels, so its dropdowns can be told apart", async () => {
+  // Found in the browser check: Priority and Repeat both read "None" with no label.
+  const app = openApp();
+  await settle();
+  await app.add("Labelled");
+  const row = await startEdit(app, "Labelled");
+  const labelFor = (cls) => {
+    const control = row.querySelector("." + cls);
+    const label = control.closest("label");
+    return label ? label.querySelector("span").textContent : "";
+  };
+  assert.equal(labelFor("edit-priority"), "Priority");
+  assert.equal(labelFor("edit-due"), "Due");
+  assert.equal(labelFor("edit-repeat"), "Repeat");
+  assert.equal(labelFor("edit-tags"), "Tags");
+});
+
+test("every form field has a name or id", async () => {
+  // Found in the browser check: Chrome flagged 25 unnamed fields.
+  const app = openApp();
+  await settle();
+  await app.add("Named fields");
+  await startEdit(app, "Named fields");
+  const unnamed = [...app.doc.querySelectorAll("input, select")].filter((e) => !e.id && !e.name);
+  assert.equal(unnamed.length, 0);
 });

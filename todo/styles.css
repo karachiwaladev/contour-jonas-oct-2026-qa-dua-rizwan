@@ -70,7 +70,8 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 .edit-form { display: grid; gap: 8px; }
 .edit-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .edit-row > .edit-title { flex: 1 1 100%; }
-.edit-row > .edit-tags { flex: 1 1 160px; }
+.edit-row .field.grow { flex: 1 1 200px; min-width: 0; }
+.edit-row .field.grow input { flex: 1; min-width: 0; }
 .edit-actions { justify-content: flex-end; }
 .edit-actions .cancel { background: transparent; color: var(--text); border: 1px solid var(--border); }
 .chip {
