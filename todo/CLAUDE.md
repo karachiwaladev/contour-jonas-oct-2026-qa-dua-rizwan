@@ -24,10 +24,22 @@ npm test
 | `tests/db.test.js` | Storage: add, list, mark done, delete, persistence |
 | `tests/filters.test.js` | Status and tag filters, tag parsing, due dates, overdue, old-task migration |
 | `tests/recurring.test.js` | Recurrence date maths, next occurrences, no duplicates, stopping |
-| `tests/ui.test.js` | The real page in jsdom: clicks, filters, tags, recurrence, reloads, XSS safety |
+| `tests/ui.test.js` | The real page in jsdom: clicks, filters, tags, recurrence, reloads, XSS safety, no-IndexedDB error |
+| `tests/mutation.js` | Not a test: plants ten bugs in a temp copy of `db.js`, one at a time, and checks the suite catches each |
 
 Tests use Node's built-in runner, `fake-indexeddb` for an in-memory IndexedDB,
 and `jsdom` for a simulated browser, so no real browser is needed.
+
+Two more checks say whether the tests are any good, not just green:
+
+```bash
+npm run test:coverage   # line, branch and function coverage of app.js and db.js
+npm run test:mutation   # every planted bug must fail at least one test; exits 1 otherwise
+```
+
+The UI tests compile `db.js` and `app.js` with `vm.Script` and their real
+filenames, so coverage counts them. Add a mutant to `tests/mutation.js` when
+you add a behaviour worth protecting.
 
 ## Features
 
