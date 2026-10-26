@@ -30,11 +30,12 @@ function openApp(factory = new IDBFactory()) {
     errorText: () => ($("#error").hidden ? "" : $("#error").textContent),
     tagOptions: () => [...$("#tag-filter").options].map((o) => o.value),
 
-    async add(title, { due = "", tags = "" } = {}) {
+    async add(title, { due = "", tags = "", repeat = "none" } = {}) {
       const before = doc.querySelectorAll(".task").length;
       $("#new-task-input").value = title;
       $("#new-task-due").value = due;
       $("#new-task-tags").value = tags;
+      $("#new-task-repeat").value = repeat;
       $("#new-task-form").dispatchEvent(new window.Event("submit", { cancelable: true }));
       await waitFor(() => doc.querySelectorAll(".task").length !== before || page.errorText());
     },
@@ -228,4 +229,90 @@ test("task titles are rendered as text, not HTML", async () => {
   assert.equal(app.doc.querySelector(".task img"), null);
   assert.equal(app.window.hacked, undefined);
   assert.equal(app.titles()[0], '<img src=x onerror="window.hacked=1">');
+});
+
+/* ---------- Recurring tasks (Ticket #5, issue #6) ---------- */
+
+const allTasks = (app) => [...app.doc.querySelectorAll(".task")].map((li) => ({
+  title: li.querySelector(".title").textContent,
+  done: li.classList.contains("done"),
+  repeat: li.querySelector(".repeat") ? li.querySelector(".repeat").textContent : "",
+  due: li.querySelector(".due") ? li.querySelector(".due").textContent : "",
+  canStop: !!li.querySelector(".stop-repeat"),
+}));
+
+test("repeat dropdown offers None, Daily, Weekly and Monthly and resets after adding", async () => {
+  const app = openApp();
+  await settle();
+  const sel = app.doc.querySelector("#new-task-repeat");
+  assert.deepEqual([...sel.options].map((o) => o.value), ["none", "daily", "weekly", "monthly"]);
+  await app.add("Gym", { repeat: "weekly", due: "2999-01-04" });
+  assert.equal(sel.value, "none");
+});
+
+test("recurring tasks show a badge and a Stop repeating button", async () => {
+  const app = openApp();
+  await settle();
+  await app.add("Gym", { repeat: "weekly", due: "2999-01-04" });
+  await app.add("Plain task");
+  const [gym, plain] = allTasks(app);
+  assert.match(gym.repeat, /Weekly/);
+  assert.equal(gym.canStop, true);
+  assert.equal(plain.repeat, "");
+  assert.equal(plain.canStop, false);
+});
+
+test("a repeating task with no due date shows as due today", async () => {
+  const app = openApp();
+  await settle();
+  await app.add("Water plants", { repeat: "daily" });
+  const [t] = allTasks(app);
+  assert.match(t.due, /^Due /, "has a due date, and today is not overdue");
+});
+
+test("ticking a recurring task adds the next occurrence once", async () => {
+  const app = openApp();
+  await settle();
+  await app.add("Gym", { repeat: "weekly", due: "2999-01-04" });
+  await app.toggle("Gym");
+  await waitFor(() => app.doc.querySelectorAll(".task").length === 2);
+  let tasks = allTasks(app);
+  assert.equal(tasks[0].done, true);
+  assert.equal(tasks[0].canStop, false, "a finished occurrence can't stop the series");
+  assert.equal(tasks[1].done, false);
+  assert.match(tasks[1].due, /11 Jan 2999|Jan 11, 2999/, "one week later");
+  assert.match(tasks[1].repeat, /Weekly/);
+
+  // Untick and re-tick the first one: still only two tasks.
+  const first = () => app.doc.querySelectorAll(".task")[0].querySelector("input[type=checkbox]");
+  first().click(); await settle();
+  first().click(); await settle();
+  assert.equal(app.doc.querySelectorAll(".task").length, 2);
+});
+
+test("Stop repeating removes the badge, and ticking then adds no copy", async () => {
+  const app = openApp();
+  await settle();
+  await app.add("Newsletter", { repeat: "monthly", due: "2999-01-31" });
+  app.task("Newsletter").querySelector(".stop-repeat").click();
+  await waitFor(() => !app.task("Newsletter").querySelector(".repeat"));
+  assert.equal(allTasks(app)[0].canStop, false);
+  await app.toggle("Newsletter");
+  await settle();
+  assert.equal(app.doc.querySelectorAll(".task").length, 1);
+});
+
+test("recurring tasks survive a reload", async () => {
+  const factory = new IDBFactory();
+  const first = openApp(factory);
+  await settle();
+  await first.add("Gym", { repeat: "weekly", due: "2999-01-04" });
+  await first.toggle("Gym");
+  await waitFor(() => first.doc.querySelectorAll(".task").length === 2);
+
+  const reloaded = openApp(factory);
+  await waitFor(() => reloaded.titles().length === 2);
+  const tasks = allTasks(reloaded);
+  assert.deepEqual(tasks.map((t) => t.done), [true, false]);
+  assert.match(tasks[1].repeat, /Weekly/);
 });

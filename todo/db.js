@@ -9,6 +9,7 @@
 
   var STORE = "tasks";
   var DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  var REPEATS = ["none", "daily", "weekly", "monthly"];
 
   function promisify(request) {
     return new Promise(function (resolve, reject) {
@@ -40,9 +41,68 @@
     return s;
   }
 
-  /** Fill in fields that tasks saved before due dates and tags existed are missing. */
+  /** Fill in fields that tasks saved by older versions are missing. */
   function normalizeTask(task) {
-    return Object.assign({ done: false, dueDate: null, tags: [] }, task);
+    return Object.assign(
+      { done: false, dueDate: null, tags: [], repeat: "none", repeatDay: null, nextCreated: false },
+      task
+    );
+  }
+
+  /* ---------- Recurrence ---------- */
+
+  /** "" or null -> "none"; "Weekly" -> "weekly"; anything not in REPEATS throws. */
+  function normalizeRepeat(value) {
+    var r = String(value == null || value === "" ? "none" : value).trim().toLowerCase();
+    if (REPEATS.indexOf(r) === -1) {
+      throw new Error("Repeat must be one of: " + REPEATS.join(", "));
+    }
+    return r;
+  }
+
+  // Date maths on YYYY-MM-DD strings in UTC, so time zones and DST never shift a day.
+  function parseISO(s) {
+    var p = s.split("-");
+    return { y: +p[0], m: +p[1], d: +p[2] };
+  }
+  function toISO(y, m, d) {
+    var pad = function (n) { return (n < 10 ? "0" : "") + n; };
+    return y + "-" + pad(m) + "-" + pad(d);
+  }
+  function daysInMonth(y, m) { // m is 1-12
+    return new Date(Date.UTC(y, m, 0)).getUTCDate();
+  }
+  function addDays(iso, n) {
+    var p = parseISO(iso);
+    var t = new Date(Date.UTC(p.y, p.m - 1, p.d + n));
+    return toISO(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate());
+  }
+  /** Next month on the anchor day, clamped to the month's last day (31 Jan -> 28 Feb -> 31 Mar). */
+  function addMonth(iso, anchorDay) {
+    var p = parseISO(iso);
+    var y = p.y, m = p.m + 1;
+    if (m > 12) { m = 1; y++; }
+    return toISO(y, m, Math.min(anchorDay || p.d, daysInMonth(y, m)));
+  }
+
+  /**
+   * Due date of the next occurrence. Counts from the task's due date (or today if it
+   * has none) and keeps stepping until the date is today or later, so finishing an
+   * overdue task never leaves a backlog. anchorDay keeps monthly tasks on their day.
+   */
+  function nextDueDate(dueDate, repeat, today, anchorDay) {
+    if (!repeat || repeat === "none") return null;
+    today = today || todayString();
+    var base = dueDate || today;
+    var anchor = anchorDay || parseISO(base).d;
+    var step = function (d) {
+      if (repeat === "daily") return addDays(d, 1);
+      if (repeat === "weekly") return addDays(d, 7);
+      return addMonth(d, anchor);
+    };
+    var next = step(base);
+    for (var guard = 0; next < today && guard < 100000; guard++) next = step(next);
+    return next;
   }
 
   /** Today's date as YYYY-MM-DD in local time. */
@@ -83,9 +143,14 @@
 
   /* ---------- IndexedDB storage ---------- */
 
-  function createTodoDB(idb, dbName) {
+  /**
+   * createTodoDB(indexedDB?, dbName?, options?)
+   * options.now: function returning the current Date; tests pass a fixed clock.
+   */
+  function createTodoDB(idb, dbName, options) {
     idb = idb || root.indexedDB;
     dbName = dbName || "todo-app";
+    var now = (options && options.now) || function () { return new Date(); };
     var dbPromise = null;
 
     function open() {
@@ -118,24 +183,30 @@
 
     return {
       /**
-       * Add a task. options: { dueDate: "YYYY-MM-DD" | null, tags: "a, b" | ["a", "b"] }.
-       * Rejects on a blank title or a malformed due date. Resolves to the saved task.
+       * Add a task. options: { dueDate: "YYYY-MM-DD" | null, tags: "a, b" | ["a", "b"],
+       * repeat: "none" | "daily" | "weekly" | "monthly" }. A repeating task with no due
+       * date is due today. Rejects on a blank title, bad date or bad repeat value.
        */
       addTask: function (title, options) {
         options = options || {};
         var clean = String(title == null ? "" : title).trim();
         if (!clean) return Promise.reject(new Error("Task title cannot be empty"));
-        var dueDate;
+        var dueDate, repeat;
         try {
           dueDate = normalizeDueDate(options.dueDate);
+          repeat = normalizeRepeat(options.repeat);
         } catch (e) {
           return Promise.reject(e);
         }
+        if (repeat !== "none" && !dueDate) dueDate = todayString(now());
         var task = {
           title: clean,
           done: false,
           dueDate: dueDate,
           tags: parseTags(options.tags),
+          repeat: repeat,
+          repeatDay: repeat === "monthly" ? parseISO(dueDate).d : null,
+          nextCreated: false,
           createdAt: Date.now(),
         };
         return withStore("readwrite", function (store, box) {
@@ -159,13 +230,46 @@
         });
       },
 
-      /** Mark a task done or not done. Resolves to the updated task. */
+      /**
+       * Mark a task done or not done. Resolves to the updated task.
+       * Ticking a repeating task also adds its next occurrence, in the same transaction,
+       * exactly once: nextCreated stops untick-and-retick from making duplicates.
+       */
       setDone: function (id, done) {
         return withStore("readwrite", function (store, box) {
           var req = store.get(id);
           req.onsuccess = function () {
             if (!req.result) return;
-            box.value = Object.assign(normalizeTask(req.result), { done: !!done });
+            var task = Object.assign(normalizeTask(req.result), { done: !!done });
+            if (task.done && task.repeat !== "none" && !task.nextCreated) {
+              task.nextCreated = true;
+              store.add({
+                title: task.title,
+                done: false,
+                dueDate: nextDueDate(task.dueDate, task.repeat, todayString(now()), task.repeatDay),
+                tags: task.tags.slice(),
+                repeat: task.repeat,
+                repeatDay: task.repeatDay,
+                nextCreated: false,
+                createdAt: Date.now(),
+              });
+            }
+            box.value = task;
+            store.put(task);
+          };
+        }).then(function (updated) {
+          if (!updated) throw new Error("Task " + id + " not found");
+          return updated;
+        });
+      },
+
+      /** End a task's series: it stays in the list but no longer repeats. */
+      stopRepeating: function (id) {
+        return withStore("readwrite", function (store, box) {
+          var req = store.get(id);
+          req.onsuccess = function () {
+            if (!req.result) return;
+            box.value = Object.assign(normalizeTask(req.result), { repeat: "none", repeatDay: null });
             store.put(box.value);
           };
         }).then(function (updated) {
@@ -190,6 +294,9 @@
     isOverdue: isOverdue,
     filterTasks: filterTasks,
     collectTags: collectTags,
+    REPEATS: REPEATS,
+    normalizeRepeat: normalizeRepeat,
+    nextDueDate: nextDueDate,
   };
 
   if (typeof module !== "undefined" && module.exports) {

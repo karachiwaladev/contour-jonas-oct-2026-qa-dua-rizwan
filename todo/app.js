@@ -7,6 +7,8 @@
   var input = document.getElementById("new-task-input");
   var dueInput = document.getElementById("new-task-due");
   var tagsInput = document.getElementById("new-task-tags");
+  var repeatInput = document.getElementById("new-task-repeat");
+  var REPEAT_LABELS = { daily: "Daily", weekly: "Weekly", monthly: "Monthly" };
   var list = document.getElementById("task-list");
   var empty = document.getElementById("empty-state");
   var count = document.getElementById("task-count");
@@ -59,9 +61,17 @@
     label.append(checkbox, title);
     main.append(label);
 
-    if (task.dueDate || task.tags.length) {
+    var repeating = task.repeat && task.repeat !== "none";
+    if (task.dueDate || task.tags.length || repeating) {
       var meta = document.createElement("div");
       meta.className = "meta";
+      if (repeating) {
+        var badge = document.createElement("span");
+        badge.className = "repeat";
+        badge.textContent = "🔁 " + REPEAT_LABELS[task.repeat];
+        badge.title = "Repeats " + task.repeat;
+        meta.append(badge);
+      }
       if (task.dueDate) {
         var due = document.createElement("span");
         due.className = "due";
@@ -77,6 +87,18 @@
         chip.addEventListener("click", function () { setFilter({ tag: tag }); });
         meta.append(chip);
       });
+      // Only the live (unfinished) occurrence can end the series.
+      if (repeating && !task.done) {
+        var stop = document.createElement("button");
+        stop.type = "button";
+        stop.className = "stop-repeat";
+        stop.textContent = "Stop repeating";
+        stop.setAttribute("aria-label", "Stop repeating “" + task.title + "”");
+        stop.addEventListener("click", function () {
+          db.stopRepeating(task.id).then(refresh, onError);
+        });
+        meta.append(stop);
+      }
       main.append(meta);
     }
 
@@ -138,10 +160,15 @@
   form.addEventListener("submit", function (event) {
     event.preventDefault();
     showError("");
-    db.addTask(input.value, { dueDate: dueInput.value, tags: tagsInput.value }).then(function () {
+    db.addTask(input.value, {
+      dueDate: dueInput.value,
+      tags: tagsInput.value,
+      repeat: repeatInput.value,
+    }).then(function () {
       input.value = "";
       dueInput.value = "";
       tagsInput.value = "";
+      repeatInput.value = "none";
       input.focus();
       return refresh();
     }, onError);
