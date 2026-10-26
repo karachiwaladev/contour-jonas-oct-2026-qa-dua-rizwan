@@ -25,7 +25,7 @@ npm test
 | `tests/filters.test.js` | Status and tag filters, tag parsing, due dates, overdue, old-task migration |
 | `tests/recurring.test.js` | Recurrence date maths, next occurrences, no duplicates, stopping |
 | `tests/ui.test.js` | The real page in jsdom: clicks, filters, tags, recurrence, reloads, XSS safety, no-IndexedDB error |
-| `tests/mutation.js` | Not a test: plants ten bugs in `db.js` one at a time and checks the suite catches each |
+| `tests/mutation.js` | Not a test: plants ten bugs in a temp copy of `db.js`, one at a time, and checks the suite catches each |
 
 Tests use Node's built-in runner, `fake-indexeddb` for an in-memory IndexedDB,
 and `jsdom` for a simulated browser, so no real browser is needed.
