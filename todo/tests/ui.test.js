@@ -4,21 +4,24 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const vm = require("node:vm");
 const { JSDOM } = require("jsdom");
 const { IDBFactory } = require("fake-indexeddb");
 
 const ROOT = path.join(__dirname, "..");
 const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
-const dbSource = fs.readFileSync(path.join(ROOT, "db.js"), "utf8");
-const appSource = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+// Compiled with their real filenames so Node's coverage report attributes them.
+const dbScript = new vm.Script(fs.readFileSync(path.join(ROOT, "db.js"), "utf8"), { filename: path.join(ROOT, "db.js") });
+const appScript = new vm.Script(fs.readFileSync(path.join(ROOT, "app.js"), "utf8"), { filename: path.join(ROOT, "app.js") });
 
 /** Open the app. Pass the same factory twice to simulate a page reload. */
 function openApp(factory = new IDBFactory()) {
   const dom = new JSDOM(html, { runScripts: "outside-only", url: "http://localhost/" });
   const { window } = dom;
   window.indexedDB = factory;
-  window.eval(dbSource);
-  window.eval(appSource);
+  const ctx = dom.getInternalVMContext();
+  dbScript.runInContext(ctx);
+  appScript.runInContext(ctx);
   const doc = window.document;
   const $ = (sel) => doc.querySelector(sel);
 
