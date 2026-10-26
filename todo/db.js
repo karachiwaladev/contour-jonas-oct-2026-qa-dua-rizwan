@@ -114,7 +114,7 @@
 
   /** An unfinished task whose due date is before today. */
   function isOverdue(task, today) {
-    return !task.done && !!task.dueDate && task.dueDate < (today || todayString());
+    return !task.done && !!task.dueDate && task.dueDate <= (today || todayString());
   }
 
   /**
