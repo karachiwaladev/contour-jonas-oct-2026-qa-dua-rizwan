@@ -87,8 +87,9 @@
         chip.addEventListener("click", function () { setFilter({ tag: tag }); });
         meta.append(chip);
       });
-      // Only the live (unfinished) occurrence can end the series.
-      if (repeating && !task.done) {
+      // Only the live occurrence can end the series: unfinished, and its next copy
+      // not created yet. Once a next copy exists, the series continues from there.
+      if (repeating && !task.done && !task.nextCreated) {
         var stop = document.createElement("button");
         stop.type = "button";
         stop.className = "stop-repeat";

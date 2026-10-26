@@ -38,8 +38,10 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 .new-task .row { display: flex; gap: 8px; }
 .new-task .row > input { flex: 1; }
 .field { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 0.9rem; }
-.field.grow { flex: 1; }
-.field.grow input { flex: 1; }
+/* Due, Repeat and Tags wrap onto two lines rather than overflowing the card. */
+.new-task .extras { flex-wrap: wrap; }
+.field.grow { flex: 1 1 200px; min-width: 0; }
+.field.grow input { flex: 1; min-width: 0; }
 
 .filters {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
@@ -85,5 +87,9 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 }
 @media (max-width: 560px) {
   .app { margin: 0; border-radius: 0; border-left: 0; border-right: 0; }
-  .new-task .extras { flex-direction: column; align-items: stretch; }
+  /* One full-width line per field. Wrapping rows, not a column: in a column the
+     flex-basis above would become a 200px height and leave big gaps. */
+  .new-task .extras .field { flex: 1 1 100%; }
+  .new-task .extras .field > input,
+  .new-task .extras .field > select { flex: 1; min-width: 0; }
 }

@@ -316,3 +316,20 @@ test("recurring tasks survive a reload", async () => {
   assert.deepEqual(tasks.map((t) => t.done), [true, false]);
   assert.match(tasks[1].repeat, /Weekly/);
 });
+
+test("an unticked occurrence whose next copy exists offers no Stop repeating", async () => {
+  // Found in the browser check: stopping here wouldn't end the series,
+  // because the next occurrence already exists. Only the live one can stop it.
+  const app = openApp();
+  await settle();
+  await app.add("Gym", { repeat: "weekly", due: "2999-01-04" });
+  await app.toggle("Gym");
+  await waitFor(() => app.doc.querySelectorAll(".task").length === 2);
+  const firstBox = () => app.doc.querySelectorAll(".task")[0].querySelector("input[type=checkbox]");
+  firstBox().click();
+  await settle();
+  const [original, next] = allTasks(app);
+  assert.equal(original.done, false, "unticked again");
+  assert.equal(original.canStop, false, "its series has moved on to the next copy");
+  assert.equal(next.canStop, true, "the live occurrence can still stop the series");
+});
