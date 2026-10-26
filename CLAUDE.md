@@ -33,6 +33,8 @@ or two, move it down a layer and leave a pointer.
 - **Tickets drive the work.** Tickets arrive as issues named `Ticket #N`. Handle
   them with the `factory-loop` skill and reference the issue in commits,
   for example `closes #3`.
+- **Every stop auto-commits and pushes** via `.claude/hooks/on-stop.sh`, so never leave
+  secrets or half-finished junk in the working tree.
 - **Ground rules.** Training repo only: no Jonas or Contour code, and no real keys
   or secrets.
 
@@ -44,8 +46,9 @@ or two, move it down a layer and leave a pointer.
 |---|---|---|
 | `README.md` | Workshop overview, scoring and ground rules | Starting out or checking how work is scored |
 | `CLAUDE.md` | This file: purpose, rules and the index | Always loaded |
-| `.claude/skills/factory-loop/` | Picks up open tickets, does the work, comments and closes | Processing tickets, by hand or with `/loop` |
-| `.claude/settings.json` | Stop hook that logs each new prompt | Changing hooks |
+| `.claude/skills/factory-loop/` | Picks up open tickets and acts on them: builds, commits, comments, closes. Never destructive | Processing tickets, by hand or with `/loop` |
+| `.claude/settings.json` | Stop hook: runs `on-stop.sh` | Changing hooks |
+| `.claude/hooks/on-stop.sh` | On every stop: logs prompts, then commits and pushes all changes. Never force-pushes; skips likely secrets | Debugging auto-commit |
 | `.claude/hooks/log-prompts.py` | Appends new session prompts to the prompt log | Debugging the prompt log |
 | `.claude/logs/prompts.jsonl` | Prompt log, one JSON object per line; kept tracked by `.gitignore` | Reviewing what was asked |
 
