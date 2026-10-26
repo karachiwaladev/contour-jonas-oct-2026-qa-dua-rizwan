@@ -47,6 +47,9 @@ or two, move it down a layer and leave a pointer.
 | `README.md` | Workshop overview, scoring and ground rules | Starting out or checking how work is scored |
 | `CLAUDE.md` | This file: purpose, rules and the index | Always loaded |
 | `.claude/skills/factory-loop/` | Works tickets: answers questions; builds go questions, approved plan, build, browser check with screenshots. Never destructive | Processing tickets, by hand or with `/loop` |
+| `.claude/skills/security-review/` | Free security review: npm audit, secrets, XSS sinks, scripts, DeepSec scan, triage. Runs on every build | Any security check |
+| `.claude/skills/deepsec/` | Vercel DeepSec scanner: free scan anytime; paid AI review only with human approval | Deep vulnerability scans |
+| `.deepsec/` | DeepSec workspace, pinned 2.3.10, local Claude login; `INFO.md` holds the threat model. Findings are git-ignored | Updating the threat model |
 | `.mcp.json` | `chrome-isolated` browser server with a throwaway profile, for browser checks | Browser checks fail to start |
 | `.claude/settings.json` | Stop hook: runs `on-stop.sh` | Changing hooks |
 | `.claude/hooks/on-stop.sh` | On every stop: logs prompts, then commits and pushes all changes. Never force-pushes; skips likely secrets | Debugging auto-commit |

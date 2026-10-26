@@ -78,6 +78,7 @@ Approval is any human reply that clearly agrees, such as "approved", "yes", "def
 - **Question:** it only asks for information. Use the question flow.
 - **Build:** it asks for a new project or app, or a feature or change in an existing project. Use the build flow.
 - **Small factory change:** a doc, config or file outside any project, such as editing `CLAUDE.md`. Do it directly as in the build stage, without questions or browser checks.
+- **Security audit:** it asks to check, scan or audit for vulnerabilities. Run the `security-review` skill on the scope asked, plus the `deepsec` skill's free scan. Fix real findings as a build. DeepSec's AI review costs money, so offer it in the comment and run it only if a human approves.
 - **Unclear:** ask one specific question with the `factory-loop:questions` marker.
 
 ## 3. Question flow
@@ -128,7 +129,8 @@ Once approved, remove `awaiting-approval`, then:
 1. `git pull --ff-only`, then build exactly what the plan says. Changes that come up mid-build go in the final comment.
 2. **New project:** a new top-level folder with its own `CLAUDE.md`, tests, and a row in the root `CLAUDE.md` index. **Existing project:** read its `CLAUDE.md` first and follow its conventions.
 3. Write tests for every behaviour in the plan, run them, and fix failures. Then briefly break the main behaviour, confirm a test fails, and restore it.
-4. Commit specific paths, not `git add -A`, and push. End the message with `(refs #<n>)`, not `(closes #<n>)`: a closing keyword would close the ticket before the browser check has passed.
+4. **Security review:** follow the `security-review` skill on the changed files. It covers dependency audit, secrets, dangerous sinks, shell scripts, DeepSec's free scan, and a reasoned review. Fix real findings with a test before committing. Never run DeepSec's paid AI stage without a human's yes.
+5. Commit specific paths, not `git add -A`, and push. End the message with `(refs #<n>)`, not `(closes #<n>)`: a closing keyword would close the ticket before the browser check has passed.
 
 ### Stage 3: Verify in the browser and attach screenshots
 
@@ -151,6 +153,8 @@ Tests prove the logic. The browser check proves a person can actually use it.
 <what was built, where, and how to use it>
 
 **Testing:** <tests run and results, including the break-it check>
+
+**Security review:** <the security-review skill's table: dependencies, secrets, sinks, scripts, DeepSec scan, plus findings and fixes>
 
 **Browser check:** <each step clicked through and its result; console errors, if any>
 
