@@ -2,7 +2,8 @@
 
 A simple todo app. Ticket #3 (issue #4) built the basics: create a task, mark it
 done, delete it. Ticket #4 (issue #5) added status filters, due dates and tags.
-Ticket #5 (issue #6) added recurring tasks.
+Ticket #5 (issue #6) added recurring tasks. Ticket #6 (issue #9) added task
+priority and in-place editing.
 Tasks are stored in **IndexedDB**, the browser's built-in client-side database,
 so they survive page reloads with no server.
 
@@ -24,6 +25,7 @@ npm test
 | `tests/db.test.js` | Storage: add, list, mark done, delete, persistence |
 | `tests/filters.test.js` | Status and tag filters, tag parsing, due dates, overdue, old-task migration |
 | `tests/recurring.test.js` | Recurrence date maths, next occurrences, no duplicates, stopping |
+| `tests/priority.test.js` | Priority levels and filter, `updateTask` validation, monthly re-anchoring on edit |
 | `tests/ui.test.js` | The real page in jsdom: clicks, filters, tags, recurrence, reloads, XSS safety, no-IndexedDB error |
 | `tests/mutation.js` | Not a test: plants ten bugs in a temp copy of `db.js`, one at a time, and checks the suite catches each |
 
@@ -56,6 +58,16 @@ you add a behaviour worth protecting.
   short months (31 Jan, 28 Feb, 31 Mar). No due date means due today.
   "Stop repeating" ends a series. `nextCreated` makes each occurrence spawn
   its next copy only once, even if unticked and re-ticked.
+- **Priority:** None, Low, Medium or High, set when adding or editing. Shown as
+  a badge with the level's name, so it never relies on colour alone. The Priority
+  filter combines with the status and tag filters; "None" includes old tasks.
+  The list keeps creation order: priority doesn't re-sort it.
+- **Editing:** "Edit" turns a row into a form for title, priority, due date,
+  repeat and tags. Save or Enter applies it via `updateTask`, which validates
+  exactly like `addTask` and is all-or-nothing. Cancel or Escape discards it.
+  The task being edited stays visible even if the filter would hide it. Editing
+  a monthly task re-anchors its day only if the date or schedule changed. The
+  next recurring copy takes the edited values.
 
 ## Files
 

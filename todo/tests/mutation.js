@@ -31,6 +31,13 @@ const MUTANTS = [
   ["stop repeating keeps schedule", '{ repeat: "none", repeatDay: null }', "{ repeatDay: null }"],
   ["overdue on the due day", "task.dueDate < (today || todayString())", "task.dueDate <= (today || todayString())"],
   ["blank title accepted", 'if (!clean) return Promise.reject(new Error("Task title cannot be empty"));', ""],
+  // Priority and editing (Ticket #6, issue #9)
+  ["invalid priority accepted", "if (PRIORITIES.indexOf(p) === -1) {", "if (false) {"],
+  ["priority filter ignored", 'if (priority && (t.priority || "none") !== priority) return false;', ""],
+  ["next copy loses priority", "priority: task.priority,", 'priority: "none",'],
+  ["edit drops new title", "patch.title = t;", ""],
+  ["edit accepts blank title", 'if (!t) throw new Error("Task title cannot be empty");', ""],
+  ["edit always re-anchors monthly", "if (task.repeat !== before.repeat || task.dueDate !== before.dueDate) {", "if (true) {"],
 ];
 
 // Files the tests need. node_modules is linked, not copied.
