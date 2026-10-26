@@ -2,12 +2,20 @@
 (function () {
   "use strict";
 
+  var F = window.TodoFilters;
   var form = document.getElementById("new-task-form");
   var input = document.getElementById("new-task-input");
+  var dueInput = document.getElementById("new-task-due");
+  var tagsInput = document.getElementById("new-task-tags");
   var list = document.getElementById("task-list");
   var empty = document.getElementById("empty-state");
   var count = document.getElementById("task-count");
   var error = document.getElementById("error");
+  var statusButtons = Array.prototype.slice.call(document.querySelectorAll("[data-status]"));
+  var tagSelect = document.getElementById("tag-filter");
+
+  // Current filter. Kept in memory only, so a reload shows all tasks again.
+  var filter = { status: "all", tag: "" };
 
   function showError(message) {
     error.textContent = message || "";
@@ -22,10 +30,19 @@
   var db = window.createTodoDB();
   var onError = function (e) { showError(e.message); };
 
-  function renderTask(task) {
+  function formatDate(iso) {
+    var d = new Date(iso + "T00:00:00");
+    return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+  }
+
+  function renderTask(task, today) {
     var li = document.createElement("li");
-    li.className = "task" + (task.done ? " done" : "");
+    var overdue = F.isOverdue(task, today);
+    li.className = "task" + (task.done ? " done" : "") + (overdue ? " overdue" : "");
     li.dataset.id = task.id;
+
+    var main = document.createElement("div");
+    main.className = "task-main";
 
     var label = document.createElement("label");
     var checkbox = document.createElement("input");
@@ -39,8 +56,29 @@
     var title = document.createElement("span");
     title.className = "title";
     title.textContent = task.title; // textContent, never innerHTML: titles are user input
-
     label.append(checkbox, title);
+    main.append(label);
+
+    if (task.dueDate || task.tags.length) {
+      var meta = document.createElement("div");
+      meta.className = "meta";
+      if (task.dueDate) {
+        var due = document.createElement("span");
+        due.className = "due";
+        due.textContent = (overdue ? "Overdue: " : "Due ") + formatDate(task.dueDate);
+        meta.append(due);
+      }
+      task.tags.forEach(function (tag) {
+        var chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "tag";
+        chip.textContent = "#" + tag;
+        chip.title = "Show only #" + tag;
+        chip.addEventListener("click", function () { setFilter({ tag: tag }); });
+        meta.append(chip);
+      });
+      main.append(meta);
+    }
 
     var del = document.createElement("button");
     del.type = "button";
@@ -51,24 +89,59 @@
       db.deleteTask(task.id).then(refresh, onError);
     });
 
-    li.append(label, del);
+    li.append(main, del);
     return li;
+  }
+
+  function renderTagOptions(tags) {
+    // Drop a tag filter whose last task was deleted.
+    if (filter.tag && tags.indexOf(filter.tag) === -1) filter.tag = "";
+    var options = [new Option("All tags", "")].concat(tags.map(function (t) {
+      return new Option("#" + t, t);
+    }));
+    tagSelect.replaceChildren.apply(tagSelect, options);
+    tagSelect.value = filter.tag;
+    tagSelect.disabled = tags.length === 0;
   }
 
   function refresh() {
     return db.listTasks().then(function (tasks) {
-      list.replaceChildren.apply(list, tasks.map(renderTask));
-      empty.hidden = tasks.length > 0;
+      var today = F.todayString();
+      renderTagOptions(F.collectTags(tasks));
+      statusButtons.forEach(function (b) {
+        b.setAttribute("aria-pressed", String(b.dataset.status === filter.status));
+      });
+
+      var visible = F.filterTasks(tasks, filter);
+      list.replaceChildren.apply(list, visible.map(function (t) { return renderTask(t, today); }));
+
+      empty.hidden = visible.length > 0;
+      empty.textContent = tasks.length ? "No tasks match this filter." : "No tasks yet. Add one above.";
+
       var remaining = tasks.filter(function (t) { return !t.done; }).length;
-      count.textContent = tasks.length ? remaining + " of " + tasks.length + " left" : "";
+      count.textContent = tasks.length
+        ? "Showing " + visible.length + " of " + tasks.length + " · " + remaining + " left"
+        : "";
     }, function (e) { showError("Could not load tasks: " + e.message); });
   }
+
+  function setFilter(changes) {
+    Object.assign(filter, changes);
+    refresh();
+  }
+
+  statusButtons.forEach(function (b) {
+    b.addEventListener("click", function () { setFilter({ status: b.dataset.status }); });
+  });
+  tagSelect.addEventListener("change", function () { setFilter({ tag: tagSelect.value }); });
 
   form.addEventListener("submit", function (event) {
     event.preventDefault();
     showError("");
-    db.addTask(input.value).then(function () {
+    db.addTask(input.value, { dueDate: dueInput.value, tags: tagsInput.value }).then(function () {
       input.value = "";
+      dueInput.value = "";
+      tagsInput.value = "";
       input.focus();
       return refresh();
     }, onError);

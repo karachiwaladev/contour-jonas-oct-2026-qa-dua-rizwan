@@ -53,7 +53,7 @@ or two, move it down a layer and leave a pointer.
 
 | Folder | What it is | Status |
 |---|---|---|
-| `todo/` | Todo app on IndexedDB: create, mark done, delete (Ticket #3) | Done, 11 tests passing |
+| `todo/` | Todo app on IndexedDB: tasks, status and tag filters, due dates (Tickets #3, #4) | Done, 42 tests passing |
 
 ## Adding a project
 
