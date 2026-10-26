@@ -45,6 +45,9 @@ or two, move it down a layer and leave a pointer.
 | `README.md` | Workshop overview, scoring and ground rules | Starting out or checking how work is scored |
 | `CLAUDE.md` | This file: purpose, rules and the index | Always loaded |
 | `.claude/skills/factory-loop/` | Picks up open tickets, does the work, comments and closes | Processing tickets, by hand or with `/loop` |
+| `.claude/settings.json` | Stop hook that logs each new prompt | Changing hooks |
+| `.claude/hooks/log-prompts.py` | Appends new session prompts to the prompt log | Debugging the prompt log |
+| `.claude/logs/prompts.jsonl` | Prompt log, one JSON object per line; kept tracked by `.gitignore` | Reviewing what was asked |
 
 ### Projects
 

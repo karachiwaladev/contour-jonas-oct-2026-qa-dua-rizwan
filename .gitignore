@@ -1,0 +1,6 @@
+# The prompt log is part of the factory's record and must stay tracked.
+# These negations override broader rules such as "logs/" or "*.jsonl",
+# including any in a global gitignore. Keep them at the end of this file.
+!.claude/
+!.claude/logs/
+!.claude/logs/prompts.jsonl
