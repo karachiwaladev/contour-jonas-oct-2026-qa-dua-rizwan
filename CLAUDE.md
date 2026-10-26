@@ -31,8 +31,8 @@ or two, move it down a layer and leave a pointer.
 - **Keep this file under 100 lines at all times.** Check with `wc -l CLAUDE.md`
   before committing. If it is too long, push detail down into project folders.
 - **Tickets drive the work.** Tickets arrive as issues named `Ticket #N`. Handle
-  them with the `factory-loop` skill and reference the issue in commits,
-  for example `closes #3`.
+  them with the `factory-loop` skill. Builds go on a `ticket-<n>` branch and land
+  on `main` through a pull request a human approves. Commits say `refs #3`.
 - **Every stop auto-commits and pushes** via `.claude/hooks/on-stop.sh`, so never leave
   secrets or half-finished junk in the working tree.
 - **Ground rules.** Training repo only: no Jonas or Contour code, and no real keys
@@ -46,7 +46,7 @@ or two, move it down a layer and leave a pointer.
 |---|---|---|
 | `README.md` | Workshop overview, scoring and ground rules | Starting out or checking how work is scored |
 | `CLAUDE.md` | This file: purpose, rules and the index | Always loaded |
-| `.claude/skills/factory-loop/` | Works tickets: answers questions; builds go questions, approved plan, build, browser check with screenshots. Never destructive | Processing tickets, by hand or with `/loop` |
+| `.claude/skills/factory-loop/` | Works tickets: answers questions; builds go questions, approved plan, build on a branch, browser check with screenshots, PR reviewed by a human, squash merge. Never destructive | Processing tickets, by hand or with `/loop` |
 | `.claude/skills/security-review/` | Free security review: npm audit, secrets, XSS sinks, scripts, DeepSec scan, triage. Runs on every build | Any security check |
 | `.claude/skills/deepsec/` | Vercel DeepSec scanner: free scan anytime; paid AI review only with human approval | Deep vulnerability scans |
 | `.deepsec/` | DeepSec workspace, pinned 2.3.10, local Claude login; `INFO.md` holds the threat model. Findings are git-ignored | Updating the threat model |

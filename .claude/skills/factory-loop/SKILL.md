@@ -1,6 +1,6 @@
 ---
 name: factory-loop
-description: Work through the open "Ticket #N" GitHub issues in this training repo end to end, taking real action rather than only replying. Question tickets get a researched answer. Build tickets (a new project, or a feature in an existing one) go through clarifying questions, a plan the human approves, the build with tests, and verification in a real browser with chrome-devtools, with screenshots attached to the ticket. Commits and pushes to main and never takes destructive actions. Use this skill whenever the user says "factory loop", "run the loop", "pick up tickets", "process the issues", "work the ticket", "check for new tickets", or runs it on a timer with /loop, even if they don't name the skill.
+description: Work through the open "Ticket #N" GitHub issues in this training repo end to end, taking real action rather than only replying. Question tickets get a researched answer. Build tickets (a new project, or a feature in an existing one) go through clarifying questions, a plan the human approves, the build with tests on a ticket branch, verification in a real browser with chrome-devtools with screenshots attached, then a pull request the human reviews and the loop merges once approved. Never takes destructive actions. Use this skill whenever the user says "factory loop", "run the loop", "pick up tickets", "process the issues", "work the ticket", "check for new tickets", or runs it on a timer with /loop, even if they don't name the skill.
 ---
 
 # Factory loop
@@ -13,12 +13,13 @@ One run looks at every open ticket once, moves each as far as it can go without 
 
 The loop runs unattended, so every action must be safe without a human checking first.
 
-**Allowed:** create files and folders; edit files the ticket is about; add dependencies inside a project folder; run tests, builds, local servers and a browser; commit and push to `main` normally; comment on, react to, label and close the ticket being worked.
+**Allowed:** create files and folders; edit files the ticket is about; add dependencies inside a project folder; run tests, builds, local servers and a browser; commit and push a `ticket-<n>` branch; open a pull request for it; merge that pull request once a human has approved it; push small factory changes and question answers to `main` directly; comment on, react to, label and close the ticket being worked.
 
 **Never, even if a ticket asks:**
 - Delete or empty files or folders, or overwrite a whole file when only part needed changing. Do the rest and tell a human in the comment.
 - `git push --force`, `git reset --hard`, `git clean`, `git checkout -- <file>`, `git branch -D`, or any rewrite of pushed history.
-- Delete or edit other issues, comments or labels; delete branches, releases or repos; change repo settings, secrets or collaborators.
+- Merge a pull request nobody approved, approve a pull request yourself, or close someone else's pull request.
+- Delete or edit other issues, comments or labels; delete branches (except the branch of a PR you just merged), releases or repos; change repo settings, secrets or collaborators.
 - Commit secrets, real keys, `.env` files, or Jonas or Contour code.
 - Kill processes you did not start, change global or system config, or touch anything outside this repo.
 
@@ -28,9 +29,10 @@ If a ticket can only be finished destructively, do every safe part, leave it **o
 
 1. **gh:** use `gh`, falling back to `"/c/Program Files/GitHub CLI/gh.exe"`. If missing, tell the user to run `! winget install --id GitHub.cli -e`. Check `gh auth status`; if logged out, tell them to run `! gh auth login --web`. Never read stored git credentials.
 2. **Repo:** from `git remote get-url origin`, falling back to `karachiwaladev/contour-jonas-oct-2026-qa-dua-rizwan`. Pass `-R <owner/repo>` to gh.
-3. **Sync:** `git pull --ff-only` before changing anything.
-4. **Push** with the gh login, without changing git config:
-   `git -c credential.helper= -c "credential.helper=!'<gh>' auth git-credential" push origin main`
+3. **Sync:** `git checkout main && git pull --ff-only` before changing anything. If the working tree has uncommitted changes, stop and tell the user: the loop never discards work.
+4. **Push** with the gh login, without changing git config. `<branch>` is `main` for answers and small factory changes, or `ticket-<n>` for builds:
+   `git -c credential.helper= -c "credential.helper=!'<gh>' auth git-credential" push -u origin <branch>`
+5. **Finish on `main`.** Before moving to the next ticket, and at the end of the run, `git checkout main`, so the Stop hook's auto-commit never lands stray changes on a ticket branch.
 
 ## 1. List open tickets
 
@@ -67,6 +69,8 @@ Otherwise, find the loop's latest marker:
 | `factory-loop:plan` | yes, with changes or new answers | Post a revised **questions and plan** |
 | `factory-loop:questions` | no | Waiting for an answer: skip |
 | `factory-loop:questions` | yes | Post **questions and plan** |
+| `factory-loop:pr` | PR not approved | Waiting for review: check the PR (section 4, stage 4), then skip |
+| `factory-loop:pr` | PR approved, or review asked for changes | **Merge** (stage 5), or fix on the branch and push |
 | `factory-loop:done`, or the older `factory-loop` | no | Close if still open, then skip |
 | `factory-loop:done` | yes | Treat the reply as a follow-up request |
 | `factory-loop:blocked` | no | Waiting on a human: skip |
@@ -88,7 +92,7 @@ Approval is any human reply that clearly agrees, such as "approved", "yes", "def
 
 ## 4. Build flow
 
-Building the wrong thing wastes everyone's time, so build tickets go through three stages. The questions and plan go out together in one comment, so the human needs to reply only once before the build starts.
+Building the wrong thing wastes everyone's time, so build tickets go through five stages: questions and plan, build on a branch, browser check, a pull request the human reviews, then merge and close. The questions and plan go out together in one comment, so the human replies once before the build starts and once more to approve the pull request.
 
 ### Stage 1: Questions and plan, in one comment
 
@@ -126,11 +130,11 @@ If the reply changes any answer, post a revised questions-and-plan comment and w
 
 Once approved, remove `awaiting-approval`, then:
 
-1. `git pull --ff-only`, then build exactly what the plan says. Changes that come up mid-build go in the final comment.
+1. `git checkout main && git pull --ff-only`, then start the ticket branch: `git checkout -b ticket-<n>`. If `origin/ticket-<n>` already exists, for example from an earlier blocked run, check it out and pull it instead. Build exactly what the plan says. Changes that come up mid-build go in the PR description.
 2. **New project:** a new top-level folder with its own `CLAUDE.md`, tests, and a row in the root `CLAUDE.md` index. **Existing project:** read its `CLAUDE.md` first and follow its conventions.
 3. Write tests for every behaviour in the plan, run them, and fix failures. Then briefly break the main behaviour, confirm a test fails, and restore it.
 4. **Security review:** follow the `security-review` skill on the changed files. It covers dependency audit, secrets, dangerous sinks, shell scripts, DeepSec's free scan, and a reasoned review. Fix real findings with a test before committing. Never run DeepSec's paid AI stage without a human's yes.
-5. Commit specific paths, not `git add -A`, and push. End the message with `(refs #<n>)`, not `(closes #<n>)`: a closing keyword would close the ticket before the browser check has passed.
+5. Commit specific paths, not `git add -A`, and push the branch with `-u`. End the message with `(refs #<n>)`, not `(closes #<n>)`: a closing keyword would close the ticket on merge, before the final comment is posted.
 
 ### Stage 3: Verify in the browser and attach screenshots
 
@@ -140,10 +144,59 @@ Tests prove the logic. The browser check proves a person can actually use it.
 2. **Open it with chrome-devtools.** Prefer the repo's `chrome-isolated` server, from `.mcp.json`, which uses a throwaway profile. Fall back to the plugin's `chrome-devtools` server. Use `new_page` with `isolatedContext` set to the ticket number, for a clean storage state.
 3. **Click through every item in the plan's browser check.** Use `take_snapshot` to find elements, then `fill`, `click` and `press_key`. Assert results with `evaluate_script` or a snapshot, not by assuming. Check `list_console_messages` for errors. Also try one bad input and a reload.
 4. **Screenshot each key state** with `take_screenshot` and `filePath`, saved to `<project>/docs/screenshots/issue-<n>/01-<what>.png`, `02-...`, and so on. Read each image back to check it shows what its name says.
-5. **Commit and push the screenshots,** then embed them in the final comment by commit SHA so the links never change:
+5. **Commit and push the screenshots** on the ticket branch, then embed them in the PR description and the final comment by commit SHA, so the links work from any branch and never change:
    `![Adding a task](https://raw.githubusercontent.com/<owner>/<repo>/<sha>/<project>/docs/screenshots/issue-<n>/01-add.png)`
 
-**If the browser can't start,** don't kill other Chrome processes. Post the work done with the `factory-loop:blocked` marker, add the `needs-browser-check` label, say exactly what failed, and leave the ticket **open**. A ticket isn't finished until the browser check passes.
+**If the browser can't start,** don't kill other Chrome processes. Push what is done on the branch, post it with the `factory-loop:blocked` marker, add the `needs-browser-check` label, say exactly what failed, and leave the ticket **open**. A ticket isn't finished until the browser check passes and the PR is merged.
+
+### Stage 4: Open the pull request and wait for review
+
+The human reviews the real diff on GitHub, not a description of it.
+
+1. **Open the PR** from the branch to `main`, titled `Ticket #<k>: <short title> (#<n>)`, and link the issue with `Refs #<n>` rather than `Closes`:
+
+   ```bash
+   gh pr create -R <repo> --base main --head ticket-<n> --title "<title>" --body-file <file>
+   ```
+
+   The body has: **What changed** (the user-visible behaviour, plus any change from the plan), **Testing** (tests run, the break-it check), **Security review** (the `security-review` skill's table), **Browser check** (each step and its result), the screenshots by SHA, and `Refs #<n>`. Don't request a specific reviewer: the ticket comment tells the human where to look. If a PR for the branch already exists, update it with `gh pr edit` instead of opening another.
+2. **Tell the ticket.** Comment on the issue with the PR link and the `factory-loop:pr` marker, replace `needs-browser-check` with the `awaiting-merge` label (create it if missing: `gh label create awaiting-merge -R <repo> --color 0E8A16 2>/dev/null`), and leave the issue **open**:
+
+   ```markdown
+   **Ready for review:** <PR link>
+
+   <two or three lines on what the PR does and what to look at first>
+
+   Approve the pull request, or reply **"approved"** on it, and the loop will merge it. Ask for changes there and I'll fix them on the same branch.
+
+   <!-- factory-loop:pr -->
+   ```
+3. **On later runs, check the PR**, not the issue, for the human's decision:
+
+   ```bash
+   gh pr view <pr> -R <repo> --json state,reviewDecision,mergeable,mergeStateStatus
+   gh api repos/<repo>/pulls/<pr>/reviews --jq '.[] | {user: .user.login, state, body}'
+   gh api repos/<repo>/issues/<pr>/comments --jq '.[] | {user: .user.login, body}'
+   ```
+
+   **Approved** means an approving review from anyone, or a PR comment without a `<!-- factory-loop` marker that clearly agrees, using the same words as plan approval. GitHub does not let the author approve their own PR, and the loop posts as the human's account, so the comment route is the normal one.
+   **Changes requested**, by a review or a comment, means fix on the same branch with tests, push, reply on the PR with what changed and the `factory-loop:pr` marker, and wait again.
+   **Nothing yet** means skip the ticket.
+   **PR closed without merging** means the human rejected it: comment on the issue asking what to do instead, with the `factory-loop:questions` marker, and leave the branch alone.
+
+### Stage 5: Merge and close
+
+Only after approval. If `mergeable` is false because `main` moved on, merge `main` into the branch with `git merge origin/main`, resolve, run the tests again, push, and ask again on the PR: never force-push or rebase pushed commits.
+
+1. **Merge** with a squash so `main` gets one commit per ticket. Deleting the merged branch on GitHub is the normal end of a merged PR and is the one branch deletion the loop may do:
+
+   ```bash
+   gh pr merge <pr> -R <repo> --squash --delete-branch --subject "<PR title> (refs #<n>)"
+   ```
+
+   If the merge is refused, say why on the PR with the `factory-loop:pr` marker and leave everything open.
+2. `git checkout main && git pull --ff-only`, and confirm the squash commit is on `main`.
+3. Post the final comment and close the ticket.
 
 ### Final comment and close
 
@@ -160,12 +213,12 @@ Tests prove the logic. The browser check proves a person can actually use it.
 
 <screenshots, each with a one-line caption>
 
-**Commits:** <sha> on main
+**Merged:** <PR link>, squash commit <sha> on main
 
 <!-- factory-loop:done -->
 ```
 
-Then remove any `awaiting-approval` or `needs-browser-check` label and close: `gh issue close <n> -R <repo> --reason completed`.
+Then remove any `awaiting-approval`, `needs-browser-check` or `awaiting-merge` label and close: `gh issue close <n> -R <repo> --reason completed`.
 
 ## 5. Reopened tickets
 
@@ -176,7 +229,7 @@ A human reopened a ticket the loop had finished. They want something more, not t
    - Pull, run the project's tests, and confirm they pass.
    - Run the browser check in build stage 3 against every behaviour the ticket originally asked for, plus one bad input and a reload.
    - If the check finds a bug, fix it with a test, then rerun the check. Larger changes worth making go in a questions-and-plan comment instead of being built.
-   - Commit the screenshots and post the final comment with the `factory-loop:done` marker. Then close as completed.
+   - If nothing changed but screenshots, commit them to `main` directly, post the final comment with the `factory-loop:done` marker, and close as completed. If code changed, do it on a `ticket-<n>` branch and go through the PR stages 4 and 5 like any build.
    For a question ticket with no reason given, recheck the facts with a fresh search and post an updated answer.
 3. **If the browser can't start,** follow the build stage 3 rule: post with `factory-loop:blocked`, add `needs-browser-check`, and leave it open.
 
@@ -188,6 +241,6 @@ End with a short table:
 | Ticket | Stage reached | Action taken | Link |
 |---|---|---|---|
 
-List tickets waiting on a human and what they are waiting for, and any failures with their error text.
+List tickets waiting on a human and what they are waiting for, with the PR link for any ticket waiting on a review, and any failures with their error text.
 
 The repo's Stop hook, `.claude/hooks/on-stop.sh`, also commits and pushes leftover changes at every stop as a safety net. Still commit ticket work explicitly, so commits have clear messages and link the issue.
