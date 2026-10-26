@@ -114,7 +114,7 @@
 
   /** An unfinished task whose due date is before today. */
   function isOverdue(task, today) {
-    return !task.done && !!task.dueDate && task.dueDate <= (today || todayString());
+    return !task.done && !!task.dueDate && task.dueDate < (today || todayString());
   }
 
   /**
@@ -269,7 +269,7 @@
           var req = store.get(id);
           req.onsuccess = function () {
             if (!req.result) return;
-            box.value = Object.assign(normalizeTask(req.result), { repeat: "none", repeatDay: null });
+            box.value = Object.assign(normalizeTask(req.result), { repeatDay: null });
             store.put(box.value);
           };
         }).then(function (updated) {
