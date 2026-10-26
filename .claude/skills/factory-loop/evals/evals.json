@@ -1,0 +1,69 @@
+{
+  "skill_name": "factory-loop",
+  "notes": "Each eval is a real ticket text run in a local sandbox: a copy of the repo with todo/ rolled back to the commit before that ticket was built. The prompt pre-approves the plan, forbids gh and pushing, and skips the browser check, so the eval measures the build stage: does the loop write tests that actually protect the behaviour the ticket asked for?",
+  "evals": [
+    {
+      "id": 1,
+      "name": "filters-due-dates-tags",
+      "base_commit": "ec60f3e",
+      "prompt": "Ticket #4: Enhance my todo app, I want to add filters only see completed, incomplete and all tasks. I would like to add a due date. I would like to add tags to my ticket and filter the tasks by available tags.",
+      "expected_output": "todo/ gains status filters, an optional due date with overdue marking, comma-separated tags shown as chips, and a tag filter that combines with the status filter. New tests cover each behaviour and the suite passes.",
+      "checklist": [
+        "All, Incomplete and Completed status filters return the right tasks",
+        "A task can be saved with a due date and it is shown",
+        "An unfinished task past its due date is marked overdue; one due today is not",
+        "Tags are parsed from comma-separated input, trimmed, lowercased and deduplicated",
+        "Filtering by a tag returns only tasks carrying it",
+        "Tag filter and status filter combine",
+        "Tasks saved before this change (no dueDate, no tags) still load",
+        "A blank title is still rejected"
+      ],
+      "planted_bug": "Change the Completed filter so it returns incomplete tasks instead of completed ones.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "recurring-tasks",
+      "base_commit": "7330e4c",
+      "prompt": "Ticket #5: Enhance my todo app, I want to create recurring tasks for my todo app. Everything should work on client side.",
+      "expected_output": "todo/ gains a repeat option (at least daily, weekly, monthly). Ticking a recurring task records it done and creates the next occurrence with the next due date, exactly once. Tests cover the date maths and the one-copy rule, and the suite passes.",
+      "checklist": [
+        "Daily, weekly and monthly next-due-date calculation",
+        "Monthly on the 29th to 31st handles shorter months without crashing or skipping",
+        "Ticking a recurring task creates the next occurrence with the same title and tags",
+        "Unticking and re-ticking never creates a second copy",
+        "A way to stop a series, and after stopping, ticking creates no copy",
+        "A recurring task with no due date gets a sensible first due date",
+        "Non-recurring tasks and tasks saved before this change behave as before"
+      ],
+      "planted_bug": "Remove whatever guard prevents a second next-occurrence from being created when a recurring task is unticked and ticked again.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "search-and-sort",
+      "base_commit": "f108065",
+      "prompt": "Ticket #6: Enhance my todo app, I want a search box that filters tasks by title as I type, and a way to sort tasks by due date so the soonest is at the top. Tasks without a due date should go at the bottom when sorting by due date.",
+      "expected_output": "todo/ gains a search input filtering by case-insensitive title substring and a sort control with a due-date order that puts undated tasks last. Both combine with the existing filters. Tests cover the search and sort rules and the suite still passes, including the existing 74 tests.",
+      "checklist": [
+        "Search matches a case-insensitive substring of the title",
+        "An empty search shows every task",
+        "Sorting by due date puts the soonest first",
+        "Tasks without a due date go last when sorting by due date",
+        "Search and sort combine with the status and tag filters",
+        "The existing 74 tests still pass unchanged",
+        "Search text is not injected as HTML"
+      ],
+      "planted_bug": "Make the search match case-sensitively, so 'gym' no longer finds 'Gym'.",
+      "files": []
+    }
+  ],
+  "assertions": [
+    {"id": "tests_added", "text": "At least one file under todo/tests/ was added or modified compared with the base commit", "how": "script"},
+    {"id": "test_count_up", "text": "The number of test() / it() cases under todo/tests/ is higher than at the base commit", "how": "script"},
+    {"id": "suite_passes", "text": "`npm test` in todo/ exits 0 with zero failures", "how": "script"},
+    {"id": "checklist_covered", "text": "At least 80% of the eval's checklist items have a test that would fail if that behaviour broke, each cited by test name", "how": "grader"},
+    {"id": "planted_bug_caught", "text": "After applying the eval's planted bug to the agent's code, `npm test` reports at least one failure", "how": "grader"},
+    {"id": "report_has_testing", "text": "The final comment file names the tests run, their count and result", "how": "grader"}
+  ]
+}
