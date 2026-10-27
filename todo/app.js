@@ -286,10 +286,12 @@
       empty.hidden = visible.length > 0;
       empty.textContent = tasks.length ? "No tasks match this filter." : "No tasks yet. Add one above.";
 
-      var remaining = tasks.filter(function (t) { return !t.done; }).length;
-      count.textContent = tasks.length
-        ? "Showing " + visible.length + " of " + tasks.length + " · " + remaining + " left"
-        : "";
+      // Footer: open and done counts over ALL tasks, whatever the filter. While a
+      // filter hides some tasks it also says how many are shown. Hidden when empty.
+      var c = F.countTasks(tasks);
+      count.hidden = c.total === 0;
+      count.textContent = c.total === 0 ? "" : c.open + " open · " + c.done + " done" +
+        (visible.length < c.total ? " · Showing " + visible.length + " of " + c.total : "");
     }, function (e) { showError("Could not load tasks: " + e.message); });
   }
 

@@ -3,7 +3,7 @@
 A simple todo app. Ticket #3 (issue #4) built the basics: create a task, mark it
 done, delete it. Ticket #4 (issue #5) added status filters, due dates and tags.
 Ticket #5 (issue #6) added recurring tasks. Ticket #6 (issue #9) added task
-priority and in-place editing.
+priority and in-place editing. Ticket #9 (issue #11) added the task count footer.
 Tasks are stored in **IndexedDB**, the browser's built-in client-side database,
 so they survive page reloads with no server.
 
@@ -25,6 +25,7 @@ npm test
 | `tests/db.test.js` | Storage: add, list, mark done, delete, persistence |
 | `tests/filters.test.js` | Status and tag filters, tag parsing, due dates, overdue, old-task migration |
 | `tests/recurring.test.js` | Recurrence date maths, next occurrences, no duplicates, stopping |
+| `tests/footer.test.js` | `countTasks`: open and done counts, empty list, old tasks, recurring copies |
 | `tests/priority.test.js` | Priority levels and filter, `updateTask` validation, monthly re-anchoring on edit |
 | `tests/ui.test.js` | The real page in jsdom: clicks, filters, tags, recurrence, reloads, XSS safety, no-IndexedDB error |
 | `tests/mutation.js` | Not a test: plants ten bugs in a temp copy of `db.js`, one at a time, and checks the suite catches each |
@@ -68,6 +69,9 @@ you add a behaviour worth protecting.
   The task being edited stays visible even if the filter would hide it. Editing
   a monthly task re-anchors its day only if the date or schedule changed. The
   next recurring copy takes the edited values.
+- **Footer:** "3 open · 2 done", counted over **all** tasks whatever the filter, via
+  `countTasks`. While a filter hides some tasks it adds "· Showing 2 of 5". It's hidden
+  when there are no tasks, and is an `aria-live` region so changes are announced.
 
 ## Files
 

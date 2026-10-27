@@ -37,6 +37,9 @@ const MUTANTS = [
   ["next copy loses priority", "priority: task.priority,", 'priority: "none",'],
   ["edit drops new title", "patch.title = t;", ""],
   ["edit accepts blank title", 'if (!t) throw new Error("Task title cannot be empty");', ""],
+  // Task count footer (Ticket #9, issue #11)
+  ["footer counts nothing as done", "var done = tasks.filter(function (t) { return !!t.done; }).length;", "var done = 0;"],
+  ["footer counts done as open", "return { total: tasks.length, open: tasks.length - done, done: done };", "return { total: tasks.length, open: tasks.length, done: done };"],
   ["edit always re-anchors monthly", "if (task.repeat !== before.repeat || task.dueDate !== before.dueDate) {", "if (true) {"],
 ];
 

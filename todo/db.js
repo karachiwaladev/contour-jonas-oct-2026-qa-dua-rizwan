@@ -145,6 +145,12 @@
     });
   }
 
+  /** How many tasks exist, and how many are open and done. Ignores any filter. */
+  function countTasks(tasks) {
+    var done = tasks.filter(function (t) { return !!t.done; }).length;
+    return { total: tasks.length, open: tasks.length - done, done: done };
+  }
+
   /** Every tag in use, sorted alphabetically, each listed once. */
   function collectTags(tasks) {
     var all = [];
@@ -353,6 +359,7 @@
     isOverdue: isOverdue,
     filterTasks: filterTasks,
     collectTags: collectTags,
+    countTasks: countTasks,
     REPEATS: REPEATS,
     normalizeRepeat: normalizeRepeat,
     nextDueDate: nextDueDate,
