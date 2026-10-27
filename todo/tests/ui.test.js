@@ -125,7 +125,7 @@ test("status filter buttons show all, incomplete and completed tasks", async () 
 
   await app.status("all");
   assert.deepEqual(app.titles(), ["open task", "finished task"]);
-  assert.match(app.countText(), /Showing 2 of 2/);
+  assert.equal(app.countText(), "1 open · 1 done", "no 'Showing' part while nothing is filtered out");
 });
 
 test("a filtered-out task leaves the list when its status changes", async () => {
@@ -575,4 +575,85 @@ test("every form field has a name or id", async () => {
   await startEdit(app, "Named fields");
   const unnamed = [...app.doc.querySelectorAll("input, select")].filter((e) => !e.id && !e.name);
   assert.equal(unnamed.length, 0);
+});
+
+/* ---------- Task count footer (Ticket #9, issue #11) ---------- */
+
+const footer = (app) => app.doc.querySelector("#task-count");
+
+test("the footer is hidden while there are no tasks", async () => {
+  const app = openApp();
+  await waitFor(() => app.doc.querySelector("#tag-filter").disabled);
+  assert.equal(footer(app).hidden, true);
+  assert.equal(footer(app).textContent, "");
+});
+
+test("the footer is a live footer element", async () => {
+  const app = openApp();
+  await settle();
+  assert.equal(footer(app).tagName, "FOOTER");
+  assert.equal(footer(app).getAttribute("aria-live"), "polite");
+});
+
+test("the footer counts open and done tasks and updates on every change", async () => {
+  const app = openApp();
+  await settle();
+  await app.add("One");
+  assert.equal(footer(app).hidden, false);
+  assert.equal(app.countText(), "1 open · 0 done");
+  await app.add("Two");
+  await app.add("Three");
+  assert.equal(app.countText(), "3 open · 0 done");
+  await app.toggle("Two");
+  assert.equal(app.countText(), "2 open · 1 done");
+  await app.toggle("Two");
+  assert.equal(app.countText(), "3 open · 0 done", "unticking moves it back to open");
+  await app.toggle("Three");
+  await app.remove("One");
+  assert.equal(app.countText(), "1 open · 1 done");
+  await app.remove("Two");
+  await app.remove("Three");
+  await settle();
+  assert.equal(footer(app).hidden, true, "hidden again once the list is empty");
+});
+
+test("the footer counts all tasks and says how many are shown while filtered", async () => {
+  const app = openApp();
+  await settle();
+  await app.add("Open A", { tags: "work" });
+  await app.add("Open B");
+  await app.add("Done C", { tags: "work" });
+  await app.toggle("Done C");
+  assert.equal(app.countText(), "2 open · 1 done");
+
+  await app.status("active");
+  assert.equal(app.countText(), "2 open · 1 done · Showing 2 of 3", "counts ignore the filter");
+  await app.status("completed");
+  assert.equal(app.countText(), "2 open · 1 done · Showing 1 of 3");
+  await app.status("all");
+  await app.tag("work");
+  assert.equal(app.countText(), "2 open · 1 done · Showing 2 of 3");
+  await app.tag("");
+  assert.equal(app.countText(), "2 open · 1 done", "no 'Showing' once nothing is hidden");
+});
+
+test("a recurring task's next copy is counted as open", async () => {
+  const app = openApp();
+  await settle();
+  await app.add("Gym", { repeat: "weekly", due: "2999-01-04" });
+  await app.toggle("Gym");
+  await waitFor(() => app.doc.querySelectorAll(".task").length === 2);
+  assert.equal(app.countText(), "1 open · 1 done");
+});
+
+test("the footer survives a reload", async () => {
+  const factory = new IDBFactory();
+  const first = openApp(factory);
+  await settle();
+  await first.add("Keep");
+  await first.add("Finish");
+  await first.toggle("Finish");
+  const reloaded = openApp(factory);
+  await waitFor(() => reloaded.titles().length === 2);
+  assert.equal(reloaded.countText(), "1 open · 1 done");
 });
