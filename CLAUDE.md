@@ -61,6 +61,7 @@ or two, move it down a layer and leave a pointer.
 | `.claude/hooks/on-stop.sh` | On every stop: logs prompts, then commits and pushes all changes. Never force-pushes; skips likely secrets | Debugging auto-commit |
 | `.claude/hooks/log-prompts.py` | Appends new session prompts to the prompt log | Debugging the prompt log |
 | `.claude/logs/prompts.jsonl` | Prompt log, one JSON object per line; kept tracked by `.gitignore` | Reviewing what was asked |
+| `docs/personas.md` | The five people the loop writes as: Mashood resolves, Hamza builds, Sehrish tests, Bilal reviews security, Ayesha runs retros | Writing any ticket comment, PR or retro |
 
 ### Projects
 
