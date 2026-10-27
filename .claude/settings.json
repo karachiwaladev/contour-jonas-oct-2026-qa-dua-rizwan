@@ -1,5 +1,75 @@
 {
+  "permissions": {
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(rm -fr *)",
+      "Bash(rm -r -f *)",
+      "Bash(rm -f -r *)",
+      "Bash(rm --recursive --force *)",
+      "Bash(sudo rm *)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(git push --force-with-lease *)",
+      "Bash(git push --mirror *)",
+      "Bash(git push * --force)",
+      "Bash(git push * -f)",
+      "Bash(git reset --hard *)",
+      "Bash(git clean -f *)",
+      "Bash(git filter-branch *)",
+      "Bash(curl * | sh)",
+      "Bash(curl * | bash)",
+      "Bash(curl * | sudo bash)",
+      "Bash(wget * | sh)",
+      "Bash(wget * | bash)",
+      "Bash(bash <(curl *)",
+      "Bash(gh auth token *)",
+      "Bash(git credential *)",
+      "Bash(printenv *)",
+      "PowerShell(Remove-Item * -Recurse -Force *)",
+      "PowerShell(iex *)",
+      "PowerShell(Invoke-Expression *)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/*.p12)",
+      "Read(**/*.pfx)",
+      "Read(**/id_rsa)",
+      "Read(**/id_ed25519)",
+      "Read(**/.git-credentials)",
+      "Read(**/.netrc)",
+      "Read(**/.npmrc)",
+      "Read(**/secrets/**)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.azure/**)",
+      "Read(~/.kube/**)",
+      "Read(~/.config/gh/**)",
+      "Read(~/.claude/.credentials.json)",
+      "Edit(**/.env)",
+      "Edit(**/.env.*)",
+      "Edit(**/*.pem)",
+      "Edit(**/*.key)",
+      "Edit(.git/hooks/**)",
+      "Edit(.git/config)",
+      "WebFetch(domain:*.local)"
+    ]
+  },
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "timeout": 15,
+            "onFailure": "block",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard.py\""
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [
@@ -13,5 +83,58 @@
         ]
       }
     ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": false,
+    "allowUnsandboxedCommands": false,
+    "excludedCommands": [
+      "gh *",
+      "git push *",
+      "git pull *",
+      "git fetch *",
+      "git -c *"
+    ],
+    "network": {
+      "allowedDomains": [
+        "github.com",
+        "api.github.com",
+        "raw.githubusercontent.com",
+        "objects.githubusercontent.com",
+        "codeload.github.com",
+        "registry.npmjs.org",
+        "pypi.org",
+        "files.pythonhosted.org",
+        "127.0.0.1",
+        "localhost"
+      ],
+      "deniedDomains": [
+        "*.local",
+        "*.lan",
+        "*.home.arpa",
+        "*.nabu.casa"
+      ]
+    },
+    "filesystem": {
+      "denyRead": [
+        "~/.ssh",
+        "~/.aws",
+        "~/.azure",
+        "~/.kube",
+        "~/.config/gh",
+        "~/.git-credentials",
+        "~/.claude/.credentials.json"
+      ],
+      "denyWrite": [
+        ".claude/settings.json",
+        ".claude/settings.local.json",
+        ".claude/hooks",
+        ".claude/security",
+        ".agentignore",
+        ".mcp.json",
+        ".git/hooks",
+        ".git/config"
+      ]
+    }
   }
 }

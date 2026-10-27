@@ -1,0 +1,40 @@
+# .agentignore: paths the factory agent may never read, search, copy, send or write.
+#
+# Enforced by .claude/hooks/guard.py, a PreToolUse hook, for the Read, Edit, Write and
+# Grep tools and for paths named in shell commands. Mirrored in .claude/settings.json
+# deny rules as a second layer.
+#
+# Syntax is .gitignore's: a name with no slash matches anywhere, a leading "/" or a
+# slash anchors to the repo root, "~/" is the home folder, "**" is any depth, a
+# trailing "/" covers a folder, and "!" re-allows a path.
+#
+# The guard already protects common secrets: .env files, private keys, SSH, AWS,
+# GitHub CLI and Claude credentials. See DEFAULT_SECRET_PATTERNS in guard.py.
+# Add anything project-specific here. Only a human should edit this file; the guard
+# stops the agent from changing it.
+
+# Project secrets and local overrides
+secrets/
+*.secret
+*.secrets.*
+config/local.*
+.envrc
+
+# Infrastructure credentials
+*.tfstate
+*.tfstate.*
+*.tfvars
+kubeconfig
+*kubeconfig*.yaml
+
+# Proxmox and Home Assistant (docs/security/least-privilege.md)
+**/pve-*.token
+**/proxmox*.token
+**/proxmox*.env
+secrets.yaml
+ha-token*
+.storage/auth*
+
+# DeepSec findings stay out of the agent's hands, too: they describe live vulnerabilities.
+.deepsec/findings/
+.deepsec/.env.local

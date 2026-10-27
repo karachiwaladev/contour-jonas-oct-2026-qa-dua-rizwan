@@ -36,8 +36,15 @@ norm() { # lowercase, forward slashes, no trailing slash
   printf '%s' "$p" | tr '[:upper:]' '[:lower:]'
 }
 
-say() { # JSON systemMessage shown to the user
+say() { # JSON systemMessage shown to the user, also recorded in the security audit log
   python -c 'import json,sys; print(json.dumps({"systemMessage": sys.argv[1]}))' "$1" 2>/dev/null
+  audit "stop-hook" "$1"
+}
+
+audit() { # append to the hash-chained audit log (see guard.py --verify-log)
+  local guard
+  guard="$(git rev-parse --show-toplevel 2>/dev/null)/.claude/hooks/guard.py"
+  [ -f "$guard" ] && python "$guard" --log-event "$1" "$2" >/dev/null 2>&1 || true
 }
 
 PAYLOAD="$(cat)"

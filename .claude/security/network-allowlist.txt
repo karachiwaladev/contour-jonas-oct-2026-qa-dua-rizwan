@@ -1,0 +1,14 @@
+# Hosts the factory agent may reach on sensitive APIs: Proxmox VE and Home Assistant.
+#
+# Empty by default, which means deny: .claude/hooks/guard.py blocks any command or
+# WebFetch that targets a Proxmox API (:8006, /api2/json, PVEAPIToken) or a Home
+# Assistant API or webhook (:8123, /api/webhook/, /api/services/).
+#
+# Add a host only after following docs/security/least-privilege.md: a dedicated user, a
+# privilege-separated token with the smallest role on the narrowest path, an expiry date,
+# and the token kept in the OS credential store rather than the repo. One host or
+# host:port per line, for example:
+#
+#   pve-lab.example.internal:8006
+#
+# Only a human should edit this file; the guard stops the agent from changing it.
