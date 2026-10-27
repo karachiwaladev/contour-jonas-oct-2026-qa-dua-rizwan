@@ -780,3 +780,27 @@ test("search text is treated as text, not HTML", async () => {
   assert.equal(app.window.hacked, undefined);
   assert.equal(app.doc.querySelector("img"), null);
 });
+
+test("the search field's built-in × clears the search (it fires a 'search' event)", async () => {
+  // Found in the browser check: Chrome's × fires "search", which the app didn't handle.
+  const app = openApp();
+  await settle();
+  await app.add("Alpha");
+  await app.add("Beta");
+  await typeSearch(app, "alp");
+  assert.deepEqual(app.titles(), ["Alpha"]);
+  const box = app.doc.querySelector("#search");
+  box.value = "";
+  box.dispatchEvent(new app.window.Event("search"));
+  await settle();
+  assert.deepEqual(app.titles(), ["Alpha", "Beta"]);
+  assert.equal(app.countText(), "2 open · 0 done");
+});
+
+test("the search box shares the app's input styling", () => {
+  // Found in the browser check: the shared input rule listed text and date inputs
+  // but not type=search, so the search box rendered as a bare browser default.
+  const css = fs.readFileSync(path.join(ROOT, "styles.css"), "utf8");
+  const rule = css.split("{")[0 + css.split("{").findIndex((s) => s.includes('input[type="date"]'))];
+  assert.match(rule, /input\[type="search"\]/);
+});

@@ -307,8 +307,12 @@
   tagSelect.addEventListener("change", function () { setFilter({ tag: tagSelect.value }); });
   prioritySelect.addEventListener("change", function () { setFilter({ priority: prioritySelect.value }); });
   // Search filters on every keystroke. The browser's built-in × on a search field
-  // also fires "input", so it clears the search too.
-  searchInput.addEventListener("input", function () { setFilter({ search: searchInput.value }); });
+  // fires "search" (and in most browsers "input" too), so listen for both.
+  function onSearch() {
+    if (searchInput.value !== filter.search) setFilter({ search: searchInput.value });
+  }
+  searchInput.addEventListener("input", onSearch);
+  searchInput.addEventListener("search", onSearch);
   searchInput.addEventListener("keydown", function (event) {
     if (event.key === "Escape" && searchInput.value) {
       event.preventDefault();
