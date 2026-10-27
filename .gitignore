@@ -1,5 +1,7 @@
 # Never auto-commit dependencies, build output or secrets.
 node_modules/
+__pycache__/
+*.pyc
 .env
 .env.*
 *.pem
