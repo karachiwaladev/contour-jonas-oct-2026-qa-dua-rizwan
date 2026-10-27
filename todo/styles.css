@@ -48,6 +48,32 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   gap: 8px; margin: 16px 0 0; padding-top: 12px; border-top: 1px solid var(--border);
 }
 .status-filter { display: flex; gap: 6px; }
+.select-filters { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Priority badges: colour plus a word, so it never relies on colour alone. */
+.priority {
+  padding: 0 8px; border-radius: 999px; font-size: 0.82rem; font-weight: 600;
+  border: 1px solid currentColor;
+}
+.priority-high { color: var(--danger); background: var(--danger-soft); }
+.priority-medium { color: #b45309; background: rgba(217, 119, 6, 0.14); }
+.priority-low { color: var(--muted); background: transparent; }
+@media (prefers-color-scheme: dark) {
+  .priority-medium { color: #fbbf24; background: rgba(251, 191, 36, 0.14); }
+}
+
+/* Row actions and in-place editing. */
+.task .actions { display: flex; align-items: center; gap: 2px; flex: none; }
+.task .edit { background: transparent; color: var(--accent); padding: 6px 10px; }
+.task .edit:hover { background: var(--accent-soft); }
+.task.editing { display: block; padding: 12px 4px; }
+.edit-form { display: grid; gap: 8px; }
+.edit-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.edit-row > .edit-title { flex: 1 1 100%; }
+.edit-row .field.grow { flex: 1 1 200px; min-width: 0; }
+.edit-row .field.grow input { flex: 1; min-width: 0; }
+.edit-actions { justify-content: flex-end; }
+.edit-actions .cancel { background: transparent; color: var(--text); border: 1px solid var(--border); }
 .chip {
   background: transparent; color: var(--text); border: 1px solid var(--border);
   padding: 4px 12px; border-radius: 999px; font-size: 0.9rem;

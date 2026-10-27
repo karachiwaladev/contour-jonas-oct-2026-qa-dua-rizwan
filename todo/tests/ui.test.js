@@ -79,7 +79,9 @@ async function waitFor(check, ms = 1000) {
 
 test("shows the empty state on first load", async () => {
   const app = openApp();
-  await settle();
+  // Wait for the first load to finish rather than a fixed delay: on a busy machine
+  // (first test, cold start) 30ms wasn't always enough and the test flaked.
+  await waitFor(() => app.doc.querySelector("#tag-filter").disabled);
   assert.deepEqual(app.titles(), []);
   assert.equal(app.doc.querySelector("#empty-state").hidden, false);
   assert.equal(app.doc.querySelector("#tag-filter").disabled, true, "tag filter is off with no tags");
@@ -346,4 +348,231 @@ test("a browser without IndexedDB sees an error instead of a broken page", () =>
   const error = dom.window.document.querySelector("#error");
   assert.equal(error.hidden, false, "the error banner is shown");
   assert.match(error.textContent, /does not support IndexedDB/);
+});
+
+/* ---------- Priority and editing (Ticket #6, issue #9) ---------- */
+
+async function addWithPriority(app, title, priority, extra = {}) {
+  app.doc.querySelector("#new-task-priority").value = priority;
+  await app.add(title, extra);
+}
+const badge = (app, title) => {
+  const b = app.task(title) && app.task(title).querySelector(".priority");
+  return b ? b.textContent : "";
+};
+async function setPriorityFilter(app, value) {
+  const sel = app.doc.querySelector("#priority-filter");
+  sel.value = value;
+  sel.dispatchEvent(new app.window.Event("change"));
+  await settle();
+}
+async function startEdit(app, title) {
+  app.task(title).querySelector(".edit").click();
+  await waitFor(() => app.doc.querySelector(".task.editing"));
+  return app.doc.querySelector(".task.editing");
+}
+async function saveEdit(app, values) {
+  const row = app.doc.querySelector(".task.editing");
+  for (const [cls, v] of Object.entries(values)) row.querySelector("." + cls).value = v;
+  row.querySelector(".edit-form").dispatchEvent(new app.window.Event("submit", { cancelable: true }));
+  await waitFor(() => !app.doc.querySelector(".task.editing") || app.errorText());
+}
+
+test("the add form has a Priority dropdown that resets to None after adding", async () => {
+  const app = openApp();
+  await settle();
+  const sel = app.doc.querySelector("#new-task-priority");
+  assert.deepEqual([...sel.options].map((o) => o.value), ["none", "low", "medium", "high"]);
+  await addWithPriority(app, "Urgent", "high");
+  assert.equal(sel.value, "none");
+});
+
+test("tasks show a priority badge, and none for no priority", async () => {
+  const app = openApp();
+  await settle();
+  await addWithPriority(app, "Fire drill", "high");
+  await addWithPriority(app, "Report", "medium");
+  await addWithPriority(app, "Tidy desk", "low");
+  await app.add("Someday");
+  assert.equal(badge(app, "Fire drill"), "High");
+  assert.equal(badge(app, "Report"), "Medium");
+  assert.equal(badge(app, "Tidy desk"), "Low");
+  assert.equal(badge(app, "Someday"), "", "no badge for no priority");
+  assert.ok(app.task("Fire drill").querySelector(".priority-high"));
+});
+
+test("the priority filter shows only that level and combines with status and tag", async () => {
+  const app = openApp();
+  await settle();
+  await addWithPriority(app, "A", "high", { tags: "work" });
+  await addWithPriority(app, "B", "high", { tags: "home" });
+  await addWithPriority(app, "C", "low", { tags: "work" });
+  await app.add("D");
+  await app.toggle("B");
+
+  await setPriorityFilter(app, "high");
+  assert.deepEqual(app.titles(), ["A", "B"]);
+  await app.status("active");
+  assert.deepEqual(app.titles(), ["A"]);
+  await app.status("all");
+  await app.tag("home");
+  assert.deepEqual(app.titles(), ["B"]);
+  await app.tag("");
+  await setPriorityFilter(app, "none");
+  assert.deepEqual(app.titles(), ["D"]);
+  await setPriorityFilter(app, "");
+  assert.deepEqual(app.titles(), ["A", "B", "C", "D"]);
+});
+
+test("Edit opens a form filled with the task's current values", async () => {
+  const app = openApp();
+  await settle();
+  await addWithPriority(app, "Report", "medium", { due: "2999-01-04", tags: "work, q4", repeat: "weekly" });
+  const row = await startEdit(app, "Report");
+  assert.equal(row.querySelector(".edit-title").value, "Report");
+  assert.equal(row.querySelector(".edit-priority").value, "medium");
+  assert.equal(row.querySelector(".edit-due").value, "2999-01-04");
+  assert.equal(row.querySelector(".edit-tags").value, "work, q4");
+  assert.equal(row.querySelector(".edit-repeat").value, "weekly");
+  assert.equal(app.doc.activeElement, row.querySelector(".edit-title"), "title gets focus");
+});
+
+test("Save updates every field and leaves edit mode", async () => {
+  const app = openApp();
+  await settle();
+  await app.add("Draft", { tags: "work" });
+  await startEdit(app, "Draft");
+  await saveEdit(app, {
+    "edit-title": "Final report",
+    "edit-priority": "high",
+    "edit-due": "2999-02-01",
+    "edit-tags": "work, Q4",
+  });
+  assert.equal(app.doc.querySelector(".task.editing"), null);
+  assert.deepEqual(app.titles(), ["Final report"]);
+  const li = app.task("Final report");
+  assert.equal(badge(app, "Final report"), "High");
+  assert.match(li.querySelector(".due").textContent, /2999/);
+  assert.deepEqual([...li.querySelectorAll(".tag")].map((n) => n.textContent), ["#work", "#q4"]);
+  assert.deepEqual(app.tagOptions(), ["", "q4", "work"], "tag filter picks up the new tag");
+});
+
+test("Cancel discards changes", async () => {
+  const app = openApp();
+  await settle();
+  await addWithPriority(app, "Keep", "low");
+  const row = await startEdit(app, "Keep");
+  row.querySelector(".edit-title").value = "Changed";
+  row.querySelector(".edit-priority").value = "high";
+  row.querySelector(".cancel").click();
+  await waitFor(() => !app.doc.querySelector(".task.editing"));
+  assert.deepEqual(app.titles(), ["Keep"]);
+  assert.equal(badge(app, "Keep"), "Low");
+});
+
+test("Escape cancels editing", async () => {
+  const app = openApp();
+  await settle();
+  await app.add("Esc me");
+  const row = await startEdit(app, "Esc me");
+  row.querySelector(".edit-title").value = "Should not save";
+  row.querySelector(".edit-title").dispatchEvent(new app.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  await waitFor(() => !app.doc.querySelector(".task.editing"));
+  assert.deepEqual(app.titles(), ["Esc me"]);
+});
+
+test("saving a blank title shows the error and stays in edit mode", async () => {
+  const app = openApp();
+  await settle();
+  await app.add("Named");
+  await startEdit(app, "Named");
+  await saveEdit(app, { "edit-title": "   " });
+  assert.match(app.errorText(), /cannot be empty/);
+  assert.ok(app.doc.querySelector(".task.editing"), "still editing so the user can fix it");
+  // Fixing it and saving clears the error.
+  await saveEdit(app, { "edit-title": "Renamed" });
+  assert.equal(app.errorText(), "");
+  assert.deepEqual(app.titles(), ["Renamed"]);
+});
+
+test("a task being edited stays visible even if the edit moves it out of the filter", async () => {
+  const app = openApp();
+  await settle();
+  await addWithPriority(app, "Shift me", "high");
+  await setPriorityFilter(app, "high");
+  const row = await startEdit(app, "Shift me");
+  row.querySelector(".edit-priority").value = "low";
+  row.querySelector(".edit-title").value = "";
+  row.querySelector(".edit-form").dispatchEvent(new app.window.Event("submit", { cancelable: true }));
+  await waitFor(() => app.errorText());
+  assert.ok(app.doc.querySelector(".task.editing"), "the failed edit is still on screen");
+  await saveEdit(app, { "edit-title": "Shift me", "edit-priority": "low" });
+  assert.deepEqual(app.titles(), [], "after saving, the high-only filter hides it");
+});
+
+test("editing a recurring task carries the change into its next copy", async () => {
+  const app = openApp();
+  await settle();
+  await app.add("Gym", { repeat: "weekly", due: "2999-01-04" });
+  await startEdit(app, "Gym");
+  await saveEdit(app, { "edit-title": "Gym session", "edit-priority": "high" });
+  await app.toggle("Gym session");
+  await waitFor(() => app.doc.querySelectorAll(".task").length === 2);
+  const copies = [...app.doc.querySelectorAll(".task")];
+  assert.equal(copies[1].querySelector(".title").textContent, "Gym session");
+  assert.equal(copies[1].querySelector(".priority").textContent, "High");
+});
+
+test("priority and edits survive a reload", async () => {
+  const factory = new IDBFactory();
+  const first = openApp(factory);
+  await settle();
+  await first.add("Persist");
+  await startEdit(first, "Persist");
+  await saveEdit(first, { "edit-title": "Persisted", "edit-priority": "medium" });
+
+  const reloaded = openApp(factory);
+  await waitFor(() => reloaded.titles().length === 1);
+  assert.deepEqual(reloaded.titles(), ["Persisted"]);
+  assert.equal(badge(reloaded, "Persisted"), "Medium");
+});
+
+test("edited titles are rendered as text, not HTML", async () => {
+  const app = openApp();
+  await settle();
+  await app.add("Safe");
+  await startEdit(app, "Safe");
+  await saveEdit(app, { "edit-title": '<img src=x onerror="window.hacked=1">' });
+  assert.equal(app.doc.querySelector(".task img"), null);
+  assert.equal(app.window.hacked, undefined);
+  const row = await startEdit(app, '<img src=x onerror="window.hacked=1">');
+  assert.equal(row.querySelector("img"), null, "edit form shows it as a value, not markup");
+  assert.equal(row.querySelector(".edit-title").value, '<img src=x onerror="window.hacked=1">');
+});
+
+test("edit form fields have visible labels, so its dropdowns can be told apart", async () => {
+  // Found in the browser check: Priority and Repeat both read "None" with no label.
+  const app = openApp();
+  await settle();
+  await app.add("Labelled");
+  const row = await startEdit(app, "Labelled");
+  const labelFor = (cls) => {
+    const control = row.querySelector("." + cls);
+    const label = control.closest("label");
+    return label ? label.querySelector("span").textContent : "";
+  };
+  assert.equal(labelFor("edit-priority"), "Priority");
+  assert.equal(labelFor("edit-due"), "Due");
+  assert.equal(labelFor("edit-repeat"), "Repeat");
+  assert.equal(labelFor("edit-tags"), "Tags");
+});
+
+test("every form field has a name or id", async () => {
+  // Found in the browser check: Chrome flagged 25 unnamed fields.
+  const app = openApp();
+  await settle();
+  await app.add("Named fields");
+  await startEdit(app, "Named fields");
+  const unnamed = [...app.doc.querySelectorAll("input, select")].filter((e) => !e.id && !e.name);
+  assert.equal(unnamed.length, 0);
 });

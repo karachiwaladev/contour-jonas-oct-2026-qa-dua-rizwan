@@ -10,6 +10,7 @@
   var STORE = "tasks";
   var DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
   var REPEATS = ["none", "daily", "weekly", "monthly"];
+  var PRIORITIES = ["none", "low", "medium", "high"];
 
   function promisify(request) {
     return new Promise(function (resolve, reject) {
@@ -44,9 +45,18 @@
   /** Fill in fields that tasks saved by older versions are missing. */
   function normalizeTask(task) {
     return Object.assign(
-      { done: false, dueDate: null, tags: [], repeat: "none", repeatDay: null, nextCreated: false },
+      { done: false, dueDate: null, tags: [], priority: "none", repeat: "none", repeatDay: null, nextCreated: false },
       task
     );
+  }
+
+  /** "" or null -> "none"; "High" -> "high"; anything not in PRIORITIES throws. */
+  function normalizePriority(value) {
+    var p = String(value == null || value === "" ? "none" : value).trim().toLowerCase();
+    if (PRIORITIES.indexOf(p) === -1) {
+      throw new Error("Priority must be one of: " + PRIORITIES.join(", "));
+    }
+    return p;
   }
 
   /* ---------- Recurrence ---------- */
@@ -118,16 +128,19 @@
   }
 
   /**
-   * Filter tasks by status ("all" | "active" | "completed") and an optional tag.
-   * Unknown statuses behave like "all".
+   * Filter tasks by status ("all" | "active" | "completed"), an optional tag and an
+   * optional priority ("none" | "low" | "medium" | "high"; "" means any).
+   * Unknown statuses behave like "all". All given filters must match.
    */
   function filterTasks(tasks, options) {
     var status = (options && options.status) || "all";
     var tag = options && options.tag ? parseTags(options.tag)[0] : null;
+    var priority = options && options.priority ? normalizePriority(options.priority) : null;
     return tasks.filter(function (t) {
       if (status === "active" && t.done) return false;
       if (status === "completed" && !t.done) return false;
       if (tag && (t.tags || []).indexOf(tag) === -1) return false;
+      if (priority && (t.priority || "none") !== priority) return false;
       return true;
     });
   }
@@ -184,17 +197,19 @@
     return {
       /**
        * Add a task. options: { dueDate: "YYYY-MM-DD" | null, tags: "a, b" | ["a", "b"],
-       * repeat: "none" | "daily" | "weekly" | "monthly" }. A repeating task with no due
-       * date is due today. Rejects on a blank title, bad date or bad repeat value.
+       * repeat: "none" | "daily" | "weekly" | "monthly", priority: "none" | "low" |
+       * "medium" | "high" }. A repeating task with no due date is due today.
+       * Rejects on a blank title, bad date, bad repeat or bad priority.
        */
       addTask: function (title, options) {
         options = options || {};
         var clean = String(title == null ? "" : title).trim();
         if (!clean) return Promise.reject(new Error("Task title cannot be empty"));
-        var dueDate, repeat;
+        var dueDate, repeat, priority;
         try {
           dueDate = normalizeDueDate(options.dueDate);
           repeat = normalizeRepeat(options.repeat);
+          priority = normalizePriority(options.priority);
         } catch (e) {
           return Promise.reject(e);
         }
@@ -204,6 +219,7 @@
           done: false,
           dueDate: dueDate,
           tags: parseTags(options.tags),
+          priority: priority,
           repeat: repeat,
           repeatDay: repeat === "monthly" ? parseISO(dueDate).d : null,
           nextCreated: false,
@@ -248,11 +264,54 @@
                 done: false,
                 dueDate: nextDueDate(task.dueDate, task.repeat, todayString(now()), task.repeatDay),
                 tags: task.tags.slice(),
+                priority: task.priority,
                 repeat: task.repeat,
                 repeatDay: task.repeatDay,
                 nextCreated: false,
                 createdAt: Date.now(),
               });
+            }
+            box.value = task;
+            store.put(task);
+          };
+        }).then(function (updated) {
+          if (!updated) throw new Error("Task " + id + " not found");
+          return updated;
+        });
+      },
+
+      /**
+       * Edit a task. changes may hold any of: title, priority, dueDate, tags, repeat.
+       * Each is validated exactly as in addTask; fields not given are left alone, as
+       * are done, createdAt and nextCreated. Resolves to the updated task.
+       */
+      updateTask: function (id, changes) {
+        changes = changes || {};
+        var patch = {};
+        try {
+          if ("title" in changes) {
+            var t = String(changes.title == null ? "" : changes.title).trim();
+            if (!t) throw new Error("Task title cannot be empty");
+            patch.title = t;
+          }
+          if ("priority" in changes) patch.priority = normalizePriority(changes.priority);
+          if ("dueDate" in changes) patch.dueDate = normalizeDueDate(changes.dueDate);
+          if ("tags" in changes) patch.tags = parseTags(changes.tags);
+          if ("repeat" in changes) patch.repeat = normalizeRepeat(changes.repeat);
+        } catch (e) {
+          return Promise.reject(e);
+        }
+        return withStore("readwrite", function (store, box) {
+          var req = store.get(id);
+          req.onsuccess = function () {
+            if (!req.result) return;
+            var before = normalizeTask(req.result);
+            var task = Object.assign({}, before, patch);
+            if (task.repeat !== "none" && !task.dueDate) task.dueDate = todayString(now());
+            // Re-anchor monthly tasks only when the schedule or date really changed,
+            // so editing a clamped occurrence (30 Nov from a 31st series) keeps the 31st.
+            if (task.repeat !== before.repeat || task.dueDate !== before.dueDate) {
+              task.repeatDay = task.repeat === "monthly" ? parseISO(task.dueDate).d : null;
             }
             box.value = task;
             store.put(task);
@@ -297,6 +356,8 @@
     REPEATS: REPEATS,
     normalizeRepeat: normalizeRepeat,
     nextDueDate: nextDueDate,
+    PRIORITIES: PRIORITIES,
+    normalizePriority: normalizePriority,
   };
 
   if (typeof module !== "undefined" && module.exports) {
