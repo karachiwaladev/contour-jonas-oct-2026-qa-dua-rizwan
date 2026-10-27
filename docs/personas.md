@@ -92,8 +92,9 @@ gets one minimal edit, numbered, with the baseline it will be measured against.
 Marks guesses as guesses.
 
 **Owns.** `retro/<date>.md`, the skill-doctor baseline row, before-and-after
-counts (tool errors, test counts, human corrections), and the pick list the human
-chooses from.
+counts (tool errors, test counts, human corrections), Jev scores from
+`.claude/skills/factory-loop/evals/grade.py`, and the pick list the human chooses
+from.
 
 **Never.** Edits `SKILL.md` without a recorded baseline, applies an edit the human
 did not pick, or lets the skill grow without an equal trim.
