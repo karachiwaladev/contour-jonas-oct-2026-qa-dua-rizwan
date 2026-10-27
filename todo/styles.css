@@ -21,7 +21,7 @@ body {
 }
 h1 { margin: 0 0 16px; font-size: 1.6rem; }
 
-input[type="text"], input[type="date"], select {
+input[type="text"], input[type="date"], input[type="search"], select {
   padding: 8px 10px; font: inherit; color: inherit; background: transparent;
   border: 1px solid var(--border); border-radius: 8px; min-width: 0;
 }
@@ -47,6 +47,11 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
   gap: 8px; margin: 16px 0 0; padding-top: 12px; border-top: 1px solid var(--border);
 }
+/* Search sits above the filters and takes over their divider line. */
+.search-row { margin: 16px 0 0; padding-top: 12px; border-top: 1px solid var(--border); }
+.search-row + .filters { border-top: 0; margin-top: 8px; padding-top: 0; }
+.search-field { width: 100%; }
+.search-field input { flex: 1; min-width: 0; }
 .status-filter { display: flex; gap: 6px; }
 .select-filters { display: flex; flex-wrap: wrap; gap: 8px; }
 
