@@ -37,6 +37,12 @@ const MUTANTS = [
   ["next copy loses priority", "priority: task.priority,", 'priority: "none",'],
   ["edit drops new title", "patch.title = t;", ""],
   ["edit accepts blank title", 'if (!t) throw new Error("Task title cannot be empty");', ""],
+  // Search (Ticket #10, issue #13)
+  ["search ignores tags", "return title.indexOf(w) !== -1 || tags.some(function (tag) { return tag.indexOf(w) !== -1; });", "return title.indexOf(w) !== -1;"],
+  ["search needs only one word", "return words.every(function (w) {", "return words.some(function (w) {"],
+  ["filter ignores search", "if (search && !matchesSearch(t, search)) return false;", ""],
+  ["search keeps the #", '.map(function (w) { return w.replace(/^#+/, ""); })', ".map(function (w) { return w; })"],
+  ["search is case-sensitive", 'String(query == null ? "" : query).toLowerCase()', 'String(query == null ? "" : query)'],
   // Task count footer (Ticket #9, issue #11)
   ["footer counts nothing as done", "var done = tasks.filter(function (t) { return !!t.done; }).length;", "var done = 0;"],
   ["footer counts done as open", "return { total: tasks.length, open: tasks.length - done, done: done };", "return { total: tasks.length, open: tasks.length, done: done };"],

@@ -3,7 +3,7 @@
 A simple todo app. Ticket #3 (issue #4) built the basics: create a task, mark it
 done, delete it. Ticket #4 (issue #5) added status filters, due dates and tags.
 Ticket #5 (issue #6) added recurring tasks. Ticket #6 (issue #9) added task
-priority and in-place editing. Ticket #9 (issue #11) added the task count footer.
+priority and in-place editing. Ticket #9 (issue #11) added the task count footer. Ticket #10 (issue #13) added search.
 Tasks are stored in **IndexedDB**, the browser's built-in client-side database,
 so they survive page reloads with no server.
 
@@ -25,6 +25,7 @@ npm test
 | `tests/db.test.js` | Storage: add, list, mark done, delete, persistence |
 | `tests/filters.test.js` | Status and tag filters, tag parsing, due dates, overdue, old-task migration |
 | `tests/recurring.test.js` | Recurrence date maths, next occurrences, no duplicates, stopping |
+| `tests/search.test.js` | `matchesSearch`: title and tag matching, case, `#`, several words, blanks; search combined with each filter |
 | `tests/footer.test.js` | `countTasks`: open and done counts, empty list, old tasks, recurring copies |
 | `tests/priority.test.js` | Priority levels and filter, `updateTask` validation, monthly re-anchoring on edit |
 | `tests/ui.test.js` | The real page in jsdom: clicks, filters, tags, recurrence, reloads, XSS safety, no-IndexedDB error |
@@ -72,6 +73,11 @@ you add a behaviour worth protecting.
 - **Footer:** "3 open · 2 done", counted over **all** tasks whatever the filter, via
   `countTasks`. While a filter hides some tasks it adds "· Showing 2 of 5". It's hidden
   when there are no tasks, and is an `aria-live` region so changes are announced.
+- **Search:** a box above the filters that narrows the list as you type. It matches
+  case-insensitively anywhere in the title or a tag, and a leading `#` is optional.
+  Several words narrow further: each must appear in the title or a tag. It combines
+  with the status, tag and priority filters; there is no due-date filter. An empty box,
+  Escape or the field's × shows everything. It resets on reload, like the other filters.
 
 ## Files
 

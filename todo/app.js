@@ -20,9 +20,10 @@
   var statusButtons = Array.prototype.slice.call(document.querySelectorAll("[data-status]"));
   var tagSelect = document.getElementById("tag-filter");
   var prioritySelect = document.getElementById("priority-filter");
+  var searchInput = document.getElementById("search");
 
   // Current filter. Kept in memory only, so a reload shows all tasks again.
-  var filter = { status: "all", tag: "", priority: "" };
+  var filter = { status: "all", tag: "", priority: "", search: "" };
   // The task being edited in place, if any. Only one at a time.
   var editingId = null;
 
@@ -305,6 +306,16 @@
   });
   tagSelect.addEventListener("change", function () { setFilter({ tag: tagSelect.value }); });
   prioritySelect.addEventListener("change", function () { setFilter({ priority: prioritySelect.value }); });
+  // Search filters on every keystroke. The browser's built-in × on a search field
+  // also fires "input", so it clears the search too.
+  searchInput.addEventListener("input", function () { setFilter({ search: searchInput.value }); });
+  searchInput.addEventListener("keydown", function (event) {
+    if (event.key === "Escape" && searchInput.value) {
+      event.preventDefault();
+      searchInput.value = "";
+      setFilter({ search: "" });
+    }
+  });
 
   form.addEventListener("submit", function (event) {
     event.preventDefault();

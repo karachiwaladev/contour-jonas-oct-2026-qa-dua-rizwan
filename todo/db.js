@@ -136,12 +136,35 @@
     var status = (options && options.status) || "all";
     var tag = options && options.tag ? parseTags(options.tag)[0] : null;
     var priority = options && options.priority ? normalizePriority(options.priority) : null;
+    var search = (options && options.search) || "";
     return tasks.filter(function (t) {
       if (status === "active" && t.done) return false;
       if (status === "completed" && !t.done) return false;
       if (tag && (t.tags || []).indexOf(tag) === -1) return false;
       if (priority && (t.priority || "none") !== priority) return false;
+      if (search && !matchesSearch(t, search)) return false;
       return true;
+    });
+  }
+
+  /** "Rep #Work" -> ["rep", "work"]: lowercased words, a leading # dropped, blanks removed. */
+  function searchWords(query) {
+    return String(query == null ? "" : query).toLowerCase().split(/\s+/)
+      .map(function (w) { return w.replace(/^#+/, ""); })
+      .filter(Boolean);
+  }
+
+  /**
+   * True if every word of the query appears, case-insensitively, in the task's title
+   * or in one of its tags. An empty query matches everything.
+   */
+  function matchesSearch(task, query) {
+    var words = searchWords(query);
+    if (!words.length) return true;
+    var title = String(task.title || "").toLowerCase();
+    var tags = task.tags || [];
+    return words.every(function (w) {
+      return title.indexOf(w) !== -1 || tags.some(function (tag) { return tag.indexOf(w) !== -1; });
     });
   }
 
@@ -360,6 +383,7 @@
     filterTasks: filterTasks,
     collectTags: collectTags,
     countTasks: countTasks,
+    matchesSearch: matchesSearch,
     REPEATS: REPEATS,
     normalizeRepeat: normalizeRepeat,
     nextDueDate: nextDueDate,

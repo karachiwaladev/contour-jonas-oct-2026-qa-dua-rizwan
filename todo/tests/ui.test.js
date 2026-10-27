@@ -657,3 +657,126 @@ test("the footer survives a reload", async () => {
   await waitFor(() => reloaded.titles().length === 2);
   assert.equal(reloaded.countText(), "1 open · 1 done");
 });
+
+/* ---------- Search (Ticket #10, issue #13) ---------- */
+
+async function typeSearch(app, value) {
+  const box = app.doc.querySelector("#search");
+  box.value = value;
+  box.dispatchEvent(new app.window.Event("input", { bubbles: true }));
+  await settle();
+}
+
+test("the search box is a labelled search field", async () => {
+  const app = openApp();
+  await settle();
+  const box = app.doc.querySelector("#search");
+  assert.equal(box.type, "search");
+  assert.equal(box.closest("label").querySelector("span").textContent, "Search");
+});
+
+test("typing filters by title as you type", async () => {
+  const app = openApp();
+  await settle();
+  await app.add("Write weekly report", { tags: "work" });
+  await app.add("Buy milk", { tags: "home" });
+  await app.add("Water plants", { tags: "home, garden" });
+  await typeSearch(app, "w");
+  assert.deepEqual(app.titles(), ["Write weekly report", "Water plants"]);
+  await typeSearch(app, "wa");
+  assert.deepEqual(app.titles(), ["Water plants"]);
+});
+
+test("typing filters by tag, with or without #", async () => {
+  const app = openApp();
+  await settle();
+  await app.add("Write weekly report", { tags: "work" });
+  await app.add("Water plants", { tags: "home, garden" });
+  await typeSearch(app, "#garden");
+  assert.deepEqual(app.titles(), ["Water plants"]);
+  await typeSearch(app, "work");
+  assert.deepEqual(app.titles(), ["Write weekly report"]);
+});
+
+test("search combines with the status, tag and priority filters", async () => {
+  const app = openApp();
+  await settle();
+  app.doc.querySelector("#new-task-priority").value = "high";
+  await app.add("Home repairs", { tags: "home" });
+  await app.add("Home shopping", { tags: "home" });
+  await app.add("Work plan", { tags: "work" });
+  await app.toggle("Home shopping");
+
+  await typeSearch(app, "home");
+  assert.deepEqual(app.titles(), ["Home repairs", "Home shopping"]);
+  await app.status("active");
+  assert.deepEqual(app.titles(), ["Home repairs"]);
+  await app.status("all");
+  await app.tag("work");
+  assert.deepEqual(app.titles(), [], "search 'home' and tag #work exclude each other");
+  await app.tag("");
+  const pri = app.doc.querySelector("#priority-filter");
+  pri.value = "high";
+  pri.dispatchEvent(new app.window.Event("change"));
+  await settle();
+  assert.deepEqual(app.titles(), ["Home repairs"]);
+});
+
+test("no results shows the no-match message and the footer still counts everything", async () => {
+  const app = openApp();
+  await settle();
+  await app.add("One");
+  await app.add("Two");
+  await typeSearch(app, "zzz");
+  assert.deepEqual(app.titles(), []);
+  assert.equal(app.doc.querySelector("#empty-state").hidden, false);
+  assert.match(app.doc.querySelector("#empty-state").textContent, /No tasks match/);
+  assert.equal(app.countText(), "2 open · 0 done · Showing 0 of 2");
+});
+
+test("clearing the box shows everything again", async () => {
+  const app = openApp();
+  await settle();
+  await app.add("Alpha");
+  await app.add("Beta");
+  await typeSearch(app, "alp");
+  assert.deepEqual(app.titles(), ["Alpha"]);
+  await typeSearch(app, "");
+  assert.deepEqual(app.titles(), ["Alpha", "Beta"]);
+  assert.equal(app.countText(), "2 open · 0 done");
+});
+
+test("Escape in the search box clears it", async () => {
+  const app = openApp();
+  await settle();
+  await app.add("Alpha");
+  await app.add("Beta");
+  await typeSearch(app, "bet");
+  const box = app.doc.querySelector("#search");
+  box.dispatchEvent(new app.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  await settle();
+  assert.equal(box.value, "");
+  assert.deepEqual(app.titles(), ["Alpha", "Beta"]);
+});
+
+test("new tasks that don't match the search stay hidden until it is cleared", async () => {
+  const app = openApp();
+  await settle();
+  await app.add("Alpha");
+  await typeSearch(app, "alpha");
+  // add() waits for the list to change, which won't happen for a hidden task.
+  app.doc.querySelector("#new-task-input").value = "Gamma";
+  app.doc.querySelector("#new-task-form").dispatchEvent(new app.window.Event("submit", { cancelable: true }));
+  await waitFor(() => app.countText().startsWith("2 open"));
+  assert.deepEqual(app.titles(), ["Alpha"]);
+  assert.equal(app.countText(), "2 open · 0 done · Showing 1 of 2");
+});
+
+test("search text is treated as text, not HTML", async () => {
+  const app = openApp();
+  await settle();
+  await app.add("Safe task");
+  await typeSearch(app, '<img src=x onerror="window.hacked=1">');
+  assert.equal(app.window.hacked, undefined);
+  assert.equal(app.doc.querySelector("img"), null);
+});
